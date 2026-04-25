@@ -25,6 +25,9 @@
 
 package jdk.incubator.code;
 
+import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.MethodTree;
+import com.sun.tools.javac.api.BasicJavacTask;
 import com.sun.tools.javac.api.JavacScope;
 import com.sun.tools.javac.api.JavacTrees;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
@@ -46,6 +49,7 @@ import jdk.internal.access.SharedSecrets;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
+import javax.tools.JavaCompiler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.*;
@@ -714,6 +718,38 @@ public non-sealed abstract class Op implements CodeElement<Op, Body> {
         try {
             JCMethodDecl methodTree = (JCMethodDecl)elements.getTree(e);
             JavacScope scope = javacTrees.getScope(javacTrees.getPath(e));
+            ClassSymbol enclosingClass = (ClassSymbol) scope.getEnclosingClass();
+            FuncOp op = attr.runWithAttributedMethod(scope.getEnv(), methodTree,
+                    attribBlock -> {
+                        try {
+                            return reflectMethods.getMethodBody(enclosingClass, methodTree, attribBlock, make);
+                        } catch (Throwable ex) {
+                            // this might happen if the source code contains errors
+                            return null;
+                        }
+                    });
+            return Optional.ofNullable(op);
+        } catch (RuntimeException ex) {  // ReflectMethods.UnsupportedASTException
+            // some other error occurred when attempting to attribute the method
+            // @@@ better report of error
+            ex.printStackTrace();
+            return Optional.empty();
+        }
+    }
+
+    public static Optional<FuncOp> ofMethodTree(JavaCompiler.CompilationTask task, CompilationUnitTree cu, MethodTree node) {
+        if (!(task instanceof BasicJavacTask basicJavacTask))
+            throw new IllegalArgumentException();
+        Context context = basicJavacTask.getContext();
+//        context.put(JavacTask.class, (JavacTask) null); // this would break actual compilation, but not having it breaks expectations in getScope
+//        context.put(JavacTrees.class, (JavacTrees) null);
+        ReflectMethods reflectMethods = ReflectMethods.instance(context);
+        Attr attr = Attr.instance(context);
+        JavacTrees javacTrees = JavacTrees.instance(context);
+        TreeMaker make = TreeMaker.instance(context);
+        try {
+            JCMethodDecl methodTree = (JCMethodDecl) node;
+            JavacScope scope = javacTrees.getScope(javacTrees.getPath(cu, node));
             ClassSymbol enclosingClass = (ClassSymbol) scope.getEnclosingClass();
             FuncOp op = attr.runWithAttributedMethod(scope.getEnv(), methodTree,
                     attribBlock -> {
