@@ -227,6 +227,7 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           path: release/
+          skip-decompress: true
 
       - name: Create Release and Attach
         uses: softprops/action-gh-release@v2
