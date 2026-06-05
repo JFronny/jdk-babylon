@@ -22,13 +22,28 @@
  * or visit www.oracle.com if you need additional information or have any
  * questions.
  */
-package hat.backend.ffi;
 
-import optkl.exceptions.CodeGenException;
+package jdk.incubator.code.internal;
 
-public class CUDACodeGenException extends CodeGenException {
+import jdk.incubator.code.Block;
+import jdk.incubator.code.CodeTransformer;
+import jdk.incubator.code.Op;
+import jdk.incubator.code.dialect.core.CoreOp;
 
-    protected CUDACodeGenException(String message) {
-        super(message);
+/**
+ * A transformer that removes unused {@link jdk.incubator.code.dialect.core.CoreOp.ConstantOp}.
+ */
+public class RemoveUnusedConstantTransformer implements CodeTransformer {
+    private RemoveUnusedConstantTransformer() {}
+
+    public static final RemoveUnusedConstantTransformer INSTANCE = new RemoveUnusedConstantTransformer();
+
+    @Override
+    public Block.Builder acceptOp(Block.Builder builder, Op op) {
+        if (op instanceof CoreOp.ConstantOp && op.result() != null && op.result().uses().isEmpty()) {
+            return builder;
+        }
+        builder.add(op);
+        return builder;
     }
 }

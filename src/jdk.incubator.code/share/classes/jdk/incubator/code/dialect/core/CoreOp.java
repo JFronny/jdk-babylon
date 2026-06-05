@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2024, 2026, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -36,6 +36,7 @@ import jdk.incubator.code.internal.OpDeclaration;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -87,12 +88,12 @@ public sealed abstract class CoreOp extends Op {
          * A builder for constructing a function operation.
          */
         public static class Builder {
-            final Body.Builder ancestorBody;
+            final Body.Builder connectedAncestorBody;
             final String funcName;
             final FunctionType signature;
 
-            Builder(Body.Builder ancestorBody, String funcName, FunctionType signature) {
-                this.ancestorBody = ancestorBody;
+            Builder(Body.Builder connectedAncestorBody, String funcName, FunctionType signature) {
+                this.connectedAncestorBody = connectedAncestorBody;
                 this.funcName = funcName;
                 this.signature = signature;
             }
@@ -104,7 +105,7 @@ public sealed abstract class CoreOp extends Op {
              * @return the completed function operation
              */
             public FuncOp body(Consumer<Block.Builder> c) {
-                Body.Builder body = Body.Builder.of(ancestorBody, signature);
+                Body.Builder body = Body.Builder.of(connectedAncestorBody, signature);
                 c.accept(body.entryBlock());
                 return new FuncOp(funcName, body);
             }
@@ -204,9 +205,9 @@ public sealed abstract class CoreOp extends Op {
         }
 
         @Override
-        public Block.Builder lower(Block.Builder b, CodeTransformer _ignore) {
+        public Block.Builder lower(Block.Builder b, BiFunction<Block.Builder, Op, Block.Builder> _ignore) {
             // Isolate body with respect to ancestor transformations
-            b.rebind(b.context(), CodeTransformer.LOWERING_TRANSFORMER).op(this);
+            b.withContextAndTransformer(b.context(), CodeTransformer.LOWERING_TRANSFORMER).add(this);
             return b;
         }
 
@@ -359,9 +360,9 @@ public sealed abstract class CoreOp extends Op {
             Body.Builder bodyC = Body.Builder.of(null, CoreType.FUNCTION_TYPE_VOID);
             Block.Builder entryBlock = bodyC.entryBlock();
             for (FuncOp f : functions) {
-                entryBlock.op(f);
+                entryBlock.add(f);
             }
-            entryBlock.op(CoreOp.unreachable());
+            entryBlock.add(CoreOp.unreachable());
 
             this(bodyC);
         }
@@ -384,8 +385,8 @@ public sealed abstract class CoreOp extends Op {
         }
 
         @Override
-        public Block.Builder lower(Block.Builder b, CodeTransformer _ignore) {
-            b.rebind(b.context(), CodeTransformer.LOWERING_TRANSFORMER).op(this);
+        public Block.Builder lower(Block.Builder b, BiFunction<Block.Builder, Op, Block.Builder> _ignore) {
+            b.withContextAndTransformer(b.context(), CodeTransformer.LOWERING_TRANSFORMER).add(this);
             return b;
         }
 
@@ -447,7 +448,7 @@ public sealed abstract class CoreOp extends Op {
                             calledFuncs.add(calledFunc);
                             funcNames.computeIfAbsent(calledFunc,
                                     f -> f.funcName() + "_" + funcNames.size());
-                            Op.Result result = blockBuilder.op(CoreOp.funcCall(
+                            Op.Result result = blockBuilder.add(CoreOp.funcCall(
                                     funcNames.get(calledFunc),
                                     calledFunc.invokableSignature(),
                                     blockBuilder.context().getValues(iop.operands())));
@@ -455,7 +456,7 @@ public sealed abstract class CoreOp extends Op {
                             return blockBuilder;
                         }
                     }
-                    blockBuilder.op(op);
+                    blockBuilder.add(op);
                     return blockBuilder;
                 }));
 
@@ -561,10 +562,10 @@ public sealed abstract class CoreOp extends Op {
         }
 
         @Override
-        public Block.Builder lower(Block.Builder b, CodeTransformer _ignore) {
+        public Block.Builder lower(Block.Builder b, BiFunction<Block.Builder, Op, Block.Builder> _ignore) {
             // Isolate body with respect to ancestor transformations
             // and copy directly without lowering descendant operations
-            b.rebind(b.context(), CodeTransformer.COPYING_TRANSFORMER).op(this);
+            b.withContextAndTransformer(b.context(), CodeTransformer.COPYING_TRANSFORMER).add(this);
             return b;
         }
 
@@ -1615,17 +1616,18 @@ public sealed abstract class CoreOp extends Op {
     /**
      * Creates a quoted operation.
      *
-     * @param ancestorBody the nearest ancestor body builder from which to construct
-     *                     the body builder for this operation
-     * @param opFunc       a function that accepts a builder for the quoted operation body and returns the operation to be quoted
+     * @param connectedAncestorBody the nearest ancestor body builder to which body builders for this operation are
+     *                              connected, or {@code null} if they are isolated
+     * @param opFunc                a function that accepts a builder for the quoted operation body and returns the
+     *                              operation to be quoted
      * @return the quoted operation
      */
-    public static QuotedOp quoted(Body.Builder ancestorBody,
+    public static QuotedOp quoted(Body.Builder connectedAncestorBody,
                                   Function<Block.Builder, Op> opFunc) {
-        Body.Builder body = Body.Builder.of(ancestorBody, CoreType.FUNCTION_TYPE_VOID);
+        Body.Builder body = Body.Builder.of(connectedAncestorBody, CoreType.FUNCTION_TYPE_VOID);
         Block.Builder block = body.entryBlock();
-        block.op(core_yield(
-                block.op(opFunc.apply(block))));
+        block.add(core_yield(
+                block.add(opFunc.apply(block))));
         return new QuotedOp(body);
     }
 

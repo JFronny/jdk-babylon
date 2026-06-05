@@ -29,7 +29,6 @@ import hat.KernelContext;
 import hat.device.NonMappableIface;
 import hat.phases.HATTier;
 import hat.types.S16ImplOfF16;
-import hat.types.Tensor;
 import jdk.incubator.code.CodeTransformer;
 import jdk.incubator.code.Op;
 import jdk.incubator.code.CodeType;
@@ -38,6 +37,7 @@ import jdk.incubator.code.dialect.core.SSA;
 import jdk.incubator.code.dialect.java.ClassType;
 import optkl.IfaceValue;
 import optkl.OpHelper;
+import optkl.VarTable;
 import optkl.ifacemapper.AccessType;
 import optkl.ifacemapper.MappableIface;
 import optkl.util.Mutable;
@@ -74,9 +74,9 @@ public class KernelCallGraph implements LookupCarrier {
     public final Set<Class<? extends IfaceValue.vec>> accessedVecClasses;
     public final Set<Class<? extends S16ImplOfF16>> accessedFP16Classes;
     public boolean usesBarrier;
-    public boolean useTensors;
     public boolean usesAtomics;
     public final Set<String> accessedKernelContextFields;
+    private final VarTable varTable;
 
     KernelCallGraph(ComputeCallGraph computeCallGraph, Method method, CoreOp.FuncOp e) {
 
@@ -105,17 +105,15 @@ public class KernelCallGraph implements LookupCarrier {
                         blockbuilder.context().mapValue(invoke.op().result(), exitBlockBuilder.parameters().getFirst());
                     }
                     changed.set(true);
-                    return exitBlockBuilder.rebind(blockbuilder.context(), blockbuilder.transformer());
+                    return exitBlockBuilder.withContextAndTransformer(blockbuilder.context(), blockbuilder.transformer());
                 }
-                blockbuilder.op(op);
+                blockbuilder.add(op);
                 return blockbuilder;
             });
         }
         var inlinedEntryPoint = ssaFunc;
         this.usesBarrier = OpHelper.Invoke.stream(lookup(), inlinedEntryPoint)
                 .anyMatch(invoke -> invoke.refIs(KernelContext.class) && invoke.named("barrier"));
-        this.useTensors = OpHelper.Invoke.stream(lookup(), inlinedEntryPoint)
-                .anyMatch(invoke -> invoke.refIs(Tensor.class) && invoke.named("load"));
         this.accessedKernelContextFields = new HashSet<>(OpHelper.FieldAccess.stream(lookup(), inlinedEntryPoint)
                 .filter(fieldAccess -> fieldAccess.refType(KernelContext.class)).map(OpHelper.FieldAccess::name).toList()
         );
@@ -153,12 +151,16 @@ public class KernelCallGraph implements LookupCarrier {
         this.bufferAccessList = BufferTagger.getAccessList(lookup(), inlinedEntryPoint);
 
         var entrypoint = new FuncOpCarrier.Impl(e);
-        HATTier.transform(HATTier.KernelPhases, lookup(), entrypoint, computeCallGraph.computeContext.config().showCompilationPhases());
+        this.varTable = new VarTable();
+        varTable.addFunction(entrypoint.funcOp().funcName());
+
+        HATTier.transform(HATTier.KernelPhases, lookup(), entrypoint, varTable, computeCallGraph.computeContext.config().showCompilationPhases());
 
         this.callDag = new MethodCallDag(lookup(), method, entrypoint.funcOp(), inlinedEntryPoint);
-        callDag.rankOrdered.forEach(f ->
-                HATTier.transform(HATTier.KernelPhases, lookup(), f, computeCallGraph.computeContext.config().showCompilationPhases())
-        );
+        callDag.rankOrdered.forEach(f -> {
+            varTable.addFunction(f.funcOp().funcName());
+            HATTier.transform(HATTier.KernelPhases, lookup(), f, varTable, computeCallGraph.computeContext.config().showCompilationPhases());
+        });
         if (showKernelCallDag) {
             this.callDag.view("kernelCallDag", n -> n.funcOp().funcName());
         }
@@ -178,5 +180,9 @@ public class KernelCallGraph implements LookupCarrier {
         if (showKernelIfaceDagProposedTypedefs) {
             ifaceDag.rankOrdered.forEach(ifaceInfo -> System.out.println("create typedef " + ifaceInfo.classType()));
         }
+    }
+
+    public VarTable getVarTable() {
+        return varTable;
     }
 }
