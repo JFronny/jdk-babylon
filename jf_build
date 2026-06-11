@@ -1,7 +1,9 @@
 #!/bin/bash
+set -euxo pipefail
+
 export CC=gcc-14
 export CXX=g++-14
-export PATH="/tmp/jf-openjdk-babylon/ccache-bin:/usr/lib/ccache/bin:$PATH"
+#export PATH="/tmp/jf-openjdk-babylon/ccache-bin:/usr/lib/ccache/bin:$PATH"
 export USE_CCACHE=1
 export CCACHE_EXEC=/usr/bin/ccache
 export CCACHE_DIR="/tmp/jf-openjdk-babylon/ccache"
@@ -37,6 +39,7 @@ bash configure \
   --with-jvm-features=zgc \
   --with-native-debug-symbols=internal \
   --enable-unlimited-crypto \
+  --enable-ccache \
   --disable-warnings-as-errors \
   --with-vendor-name="JFronny"
 make images
