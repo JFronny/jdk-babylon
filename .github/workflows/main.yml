@@ -235,9 +235,9 @@ jobs:
       - name: Extract some artifacts
         run: |
           pushd release
-#          unzip bundles-windows-x64.zip
+          echo unzip bundles-windows-x64.zip
           unzip bundles-linux-x64.zip
-#          rm bundles-windows-x64.zip bundles-linux-x64.zip
+          echo rm bundles-windows-x64.zip bundles-linux-x64.zip
           rm bundles-linux-x64.zip
           popd
 
