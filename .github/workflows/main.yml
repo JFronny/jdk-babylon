@@ -204,24 +204,24 @@ jobs:
       dry-run: ${{ needs.prepare.outputs.dry-run == 'true' }}
     if: needs.prepare.outputs.linux-x64 == 'true'
 
-  build-windows-x64:
-    name: windows-x64
-    needs: prepare
-    uses: ./.github/workflows/build-windows.yml
-    with:
-      platform: windows-x64
-      runs-on: windows-2022
-      architecture: 'x86.x64'
-      debug-levels: '[ "release" ]'
-      msvc-toolset-version: '14.44'
-      configure-arguments: ${{ github.event.inputs.configure-arguments }}
-      make-arguments: ${{ github.event.inputs.make-arguments }}
-      dry-run: ${{ needs.prepare.outputs.dry-run == 'true' }}
-    if: needs.prepare.outputs.windows-x64 == 'true'
+#  build-windows-x64:
+#    name: windows-x64
+#    needs: prepare
+#    uses: ./.github/workflows/build-windows.yml
+#    with:
+#      platform: windows-x64
+#      runs-on: windows-2022
+#      architecture: 'x86.x64'
+#      debug-levels: '[ "release" ]'
+#      msvc-toolset-version: '14.44'
+#      configure-arguments: ${{ github.event.inputs.configure-arguments }}
+#      make-arguments: ${{ github.event.inputs.make-arguments }}
+#      dry-run: ${{ needs.prepare.outputs.dry-run == 'true' }}
+#    if: needs.prepare.outputs.windows-x64 == 'true'
 
   release:
     name: 'Release'
-    needs: [build-linux-x64, build-windows-x64]
+    needs: [build-linux-x64]
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -235,9 +235,10 @@ jobs:
       - name: Extract some artifacts
         run: |
           pushd release
-          unzip bundles-windows-x64.zip
+#          unzip bundles-windows-x64.zip
           unzip bundles-linux-x64.zip
-          rm bundles-windows-x64.zip bundles-linux-x64.zip
+#          rm bundles-windows-x64.zip bundles-linux-x64.zip
+          rm bundles-linux-x64.zip
           popd
 
       - name: Create Release and Attach
