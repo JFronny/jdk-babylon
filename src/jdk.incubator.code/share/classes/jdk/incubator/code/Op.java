@@ -833,6 +833,13 @@ public non-sealed abstract class Op implements CodeElement<Op, Body> {
         }
     }
 
+    /**
+     * Returns the code model of the provided method tree (if any).
+     *
+     * @param task the compilation task the method tree comes from
+     * @param node the method tree
+     * @return the code model of the provided method tree (if any).
+     */
     public static Optional<FuncOp> ofMethodTree(JavaCompiler.CompilationTask task, MethodTree node) {
         if (!(task instanceof BasicJavacTask basicJavacTask))
             throw new IllegalArgumentException();
