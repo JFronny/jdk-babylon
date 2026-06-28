@@ -27,7 +27,6 @@ pushd /tmp/jf-openjdk-babylon/ccache-bin || exit 1
 paru -Ql gcc gcc14 | awk '/usr\/bin\/./ {print substr($2, 10)}' | xargs -n 1 ln -s /usr/bin/ccache
 popd || exit 1
 
-make clean
 bash configure \
   --with-stdc++lib=dynamic \
   --with-libjpeg=system \
@@ -42,6 +41,7 @@ bash configure \
   --enable-ccache \
   --disable-warnings-as-errors \
   --with-vendor-name="JFronny"
+make clean
 make images
 
 _imgdir=build/linux-x86_64-server-release/images
