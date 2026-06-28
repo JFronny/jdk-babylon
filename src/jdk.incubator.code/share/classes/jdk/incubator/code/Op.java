@@ -807,6 +807,13 @@ public non-sealed abstract class Op implements CodeElement<Op, Body> {
                         }
                     });
             return Optional.ofNullable(op);
+        } catch (NullPointerException npe) {
+            if ("Cannot invoke \"com.sun.source.util.TreePath.getLeaf()\" because \"path\" is null".equals(npe.getMessage())) {
+                // This is known to appear with inner methods and handled separately
+                return Optional.empty();
+            }
+            npe.printStackTrace();
+            return Optional.empty();
         } catch (RuntimeException ex) {  // ReflectMethods.UnsupportedASTException
             // some other error occurred when attempting to attribute the method
             // @@@ better report of error
@@ -815,35 +822,11 @@ public non-sealed abstract class Op implements CodeElement<Op, Body> {
         }
     }
 
-    public static Optional<FuncOp> ofMethodTree(JavaCompiler.CompilationTask task, CompilationUnitTree cu, MethodTree node) {
+    public static Optional<FuncOp> ofMethodTree(JavaCompiler.CompilationTask task, MethodTree node) {
         if (!(task instanceof BasicJavacTask basicJavacTask))
             throw new IllegalArgumentException();
         Context context = basicJavacTask.getContext();
-//        context.put(JavacTask.class, (JavacTask) null); // this would break actual compilation, but not having it breaks expectations in getScope
-//        context.put(JavacTrees.class, (JavacTrees) null);
-        ReflectMethods reflectMethods = ReflectMethods.instance(context);
-        Attr attr = Attr.instance(context);
-        JavacTrees javacTrees = JavacTrees.instance(context);
-        TreeMaker make = TreeMaker.instance(context);
-        try {
-            JCMethodDecl methodTree = (JCMethodDecl) node;
-            JavacScope scope = javacTrees.getScope(javacTrees.getPath(cu, node));
-            ClassSymbol enclosingClass = (ClassSymbol) scope.getEnclosingClass();
-            FuncOp op = attr.runWithAttributedMethod(scope.getEnv(), methodTree,
-                    attribBlock -> {
-                        try {
-                            return reflectMethods.getMethodBody(enclosingClass, methodTree, attribBlock, make);
-                        } catch (Throwable ex) {
-                            // this might happen if the source code contains errors
-                            return null;
-                        }
-                    });
-            return Optional.ofNullable(op);
-        } catch (RuntimeException ex) {  // ReflectMethods.UnsupportedASTException
-            // some other error occurred when attempting to attribute the method
-            // @@@ better report of error
-            ex.printStackTrace();
-            return Optional.empty();
-        }
+        JCMethodDecl methodTree = (JCMethodDecl) node;
+        return ofElement(JavacProcessingEnvironment.instance(context), methodTree.sym);
     }
 }
