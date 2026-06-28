@@ -35,9 +35,11 @@ public class VarTable {
         UNKNOWN,
         PRIVATE,
         SHARED,
-        INIT,
+        INIT_SHARED,
         NARROW,
         VECTOR,
+        TENSOR,
+        TENSOR_SHAPE,
     }
 
     /**
