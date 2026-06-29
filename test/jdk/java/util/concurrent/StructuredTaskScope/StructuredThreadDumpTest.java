@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,10 +27,11 @@
  * @summary Test thread dumps with StructuredTaskScope
  * @enablePreview
  * @library /test/lib
- * @run junit/othervm ${test.main.class}
+ * @run junit/othervm StructuredThreadDumpTest
  */
 
 import java.util.concurrent.StructuredTaskScope;
+import java.util.concurrent.StructuredTaskScope.Joiner;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.nio.file.Files;
@@ -53,7 +54,7 @@ class StructuredThreadDumpTest {
      */
     @Test
     void testTree() throws Exception {
-        try (var scope = StructuredTaskScope.open(cf -> cf.withName("scope"))) {
+        try (var scope = StructuredTaskScope.open(Joiner.awaitAll(), cf -> cf.withName("scope"))) {
             Thread thread1 = fork(scope, "child-scope-A");
             Thread thread2 = fork(scope, "child-scope-B");
             try {
@@ -67,15 +68,15 @@ class StructuredThreadDumpTest {
 
                 // check parents
                 assertFalse(rootContainer.parent().isPresent());
-                assertSame(rootContainer, container1.parent().get());
-                assertSame(container1, container2.parent().get());
-                assertSame(container1, container3.parent().get());
+                assertTrue(container1.parent().get() == rootContainer);
+                assertTrue(container2.parent().get() == container1);
+                assertTrue(container3.parent().get() == container1);
 
                 // check owners
                 assertFalse(rootContainer.owner().isPresent());
-                assertEquals(Thread.currentThread().threadId(), container1.owner().getAsLong());
-                assertEquals(thread1.threadId(), container2.owner().getAsLong());
-                assertEquals(thread2.threadId(), container3.owner().getAsLong());
+                assertTrue(container1.owner().getAsLong() == Thread.currentThread().threadId());
+                assertTrue(container2.owner().getAsLong() == thread1.threadId());
+                assertTrue(container3.owner().getAsLong() == thread2.threadId());
 
                 // thread1 and threads2 should be in threads array of "scope"
                 container1.findThread(thread1.threadId()).orElseThrow();
@@ -95,10 +96,10 @@ class StructuredThreadDumpTest {
      */
     @Test
     void testNested() throws Exception {
-        try (var scope1 = StructuredTaskScope.open(cf -> cf.withName("scope-A"))) {
+        try (var scope1 = StructuredTaskScope.open(Joiner.awaitAll(), cf -> cf.withName("scope-A"))) {
             Thread thread1 = fork(scope1);
 
-            try (var scope2 = StructuredTaskScope.open(cf -> cf.withName("scope-B"))) {
+            try (var scope2 = StructuredTaskScope.open(Joiner.awaitAll(), cf -> cf.withName("scope-B"))) {
                 Thread thread2 = fork(scope2);
                 try {
                     ThreadDump threadDump = threadDump();
@@ -110,14 +111,14 @@ class StructuredThreadDumpTest {
 
                     // check parents
                     assertFalse(rootContainer.parent().isPresent());
-                    assertSame(rootContainer, container1.parent().get());
-                    assertSame(container1, container2.parent().get());
+                    assertTrue(container1.parent().get() == rootContainer);
+                    assertTrue(container2.parent().get() == container1);
 
                     // check owners
                     long tid = Thread.currentThread().threadId();
                     assertFalse(rootContainer.owner().isPresent());
-                    assertEquals(tid, container1.owner().getAsLong());
-                    assertEquals(tid, container2.owner().getAsLong());
+                    assertTrue(container1.owner().getAsLong() == tid);
+                    assertTrue(container2.owner().getAsLong() == tid);
 
                     // thread1 should be in threads array of "scope-A"
                     container1.findThread(thread1.threadId()).orElseThrow();
@@ -159,7 +160,7 @@ class StructuredThreadDumpTest {
      * Forks a subtask in the given scope that parks, returning the Thread that executes
      * the subtask.
      */
-    private static Thread fork(StructuredTaskScope<?, ?, ?> scope) throws Exception {
+    private static Thread fork(StructuredTaskScope<Object, Void> scope) throws Exception {
         var ref = new AtomicReference<Thread>();
         scope.fork(() -> {
             ref.set(Thread.currentThread());
@@ -177,11 +178,12 @@ class StructuredThreadDumpTest {
      * Forks a subtask in the given scope. The subtask creates a new child scope with
      * the given name, then parks. This method returns Thread that executes the subtask.
      */
-    private static Thread fork(StructuredTaskScope<Object, Void, ?> scope,
+    private static Thread fork(StructuredTaskScope<Object, Void> scope,
                                String childScopeName) throws Exception {
         var ref = new AtomicReference<Thread>();
         scope.fork(() -> {
-            try (var childScope = StructuredTaskScope.open(cf -> cf.withName(childScopeName))) {
+            try (var childScope = StructuredTaskScope.open(Joiner.awaitAll(),
+                    cf -> cf.withName(childScopeName))) {
                 ref.set(Thread.currentThread());
                 LockSupport.park();
             }

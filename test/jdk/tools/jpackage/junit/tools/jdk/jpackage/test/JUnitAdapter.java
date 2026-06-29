@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -29,11 +29,11 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
-import jdk.jpackage.internal.util.TeeOutputStream;
 import jdk.jpackage.internal.util.function.ThrowingRunnable;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
@@ -49,7 +49,7 @@ public class JUnitAdapter {
         }
     }
 
-    public static Stream<DynamicTest> createJPackageTests(ClassLoader testClassLoader, String... args) throws Exception {
+    public static Stream<DynamicTest> createJPackageTests(ClassLoader testClassLoader, String... args) throws Throwable {
         final List<TestInstance> tests = new ArrayList<>();
         try (final var testBuilder = TestBuilder.build().workDirRoot(Path.of("")).testClassLoader(testClassLoader).testConsumer(tests::add).create()) {
             for (final var arg : args) {
@@ -64,22 +64,18 @@ public class JUnitAdapter {
     }
 
     @TestFactory
-    Stream<DynamicTest> createJPackageTests() throws Exception {
+    Stream<DynamicTest> createJPackageTests() throws Throwable {
         return createJPackageTests(getClass().getClassLoader(), "--jpt-run=" + getClass().getName());
     }
 
-    static List<String> captureJPackageTestLog(ThrowingRunnable<? extends Exception> runnable) {
+    static List<String> captureJPackageTestLog(ThrowingRunnable runnable) {
         final var buf = new ByteArrayOutputStream();
-        var ps = new PrintStream(buf, false, TKit.state().out().charset());
-
-        final var out = new PrintStream(new TeeOutputStream(List.of(TKit.state().out(), ps)), true, ps.charset());
-
-        TKit.withOutput(runnable, out, TKit.state().err());
-
-        ps.flush();
+        try (PrintStream ps = new PrintStream(buf, true, StandardCharsets.UTF_8)) {
+            TKit.withExtraLogStream(runnable, ps);
+        }
 
         try (final var in = new ByteArrayInputStream(buf.toByteArray());
-                final var reader = new InputStreamReader(in, ps.charset());
+                final var reader = new InputStreamReader(in, StandardCharsets.UTF_8);
                 final var bufReader = new BufferedReader(reader)) {
             return bufReader.lines().map(line -> {
                 // Skip timestamp

@@ -42,7 +42,7 @@ public class SecmodTest extends PKCS11Test {
         useSqlite = b;
     }
 
-    static void initSecmod() throws Exception {
+    static boolean initSecmod() throws Exception {
         useNSS();
         LIBPATH = getNSSLibDir();
         // load all the libraries except libnss3 into memory
@@ -60,7 +60,7 @@ public class SecmodTest extends PKCS11Test {
             System.setProperty("pkcs11test.nss.db", DBDIR);
         }
         File dbdirFile = new File(DBDIR);
-        if (!dbdirFile.exists()) {
+        if (dbdirFile.exists() == false) {
             dbdirFile.mkdir();
         }
 
@@ -73,6 +73,7 @@ public class SecmodTest extends PKCS11Test {
             copyFile("key3.db", BASE, DBDIR);
             copyFile("cert8.db", BASE, DBDIR);
         }
+        return true;
     }
 
     private static void copyFile(String name, String srcDir, String dstDir) throws IOException {

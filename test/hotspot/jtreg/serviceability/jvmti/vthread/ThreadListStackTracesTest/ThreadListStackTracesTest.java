@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2023, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -41,14 +41,6 @@ abstract class TestTask implements Runnable {
             Thread.sleep(millis);
         } catch (InterruptedException e) {
             throw new RuntimeException("Interruption in TestTask.sleep: \n\t" + e);
-        }
-    }
-
-    public void ensureReadyAndWaiting(Thread vt, Thread.State expState, ReentrantLock rlock) {
-        sleep(50); // reliability: wait for a potential class loading to complete
-        // wait while the thread is not ready or thread state is unexpected
-        while (!threadReady || (vt.getState() != expState) || !rlock.hasQueuedThread(vt)) {
-            sleep(1);
         }
     }
 
@@ -105,7 +97,7 @@ public class ThreadListStackTracesTest {
         String name = "ReentrantLockTestTask";
         TestTask task = new ReentrantLockTestTask();
         Thread vt = Thread.ofVirtual().name(name).start(task);
-        task.ensureReadyAndWaiting(vt, expState, reentrantLock);
+        task.ensureReady(vt, expState);
         checkStates(vt, expState);
     }
 
@@ -126,12 +118,11 @@ public class ThreadListStackTracesTest {
         int jvmtiExpState = (expState == Thread.State.WAITING) ?
                             JVMTI_THREAD_STATE_WAITING :
                             JVMTI_THREAD_STATE_BLOCKED_ON_MONITOR_ENTER;
-        Thread.State state = vt.getState();
 
-        System.out.printf("State: expected: %s, vt.getState(): %s, jvmtiExpState: %x single: %x multi: %x\n",
-                          expState, state, jvmtiExpState, singleState, multiState);
+        System.out.printf("State: expected: %s single: %x multi: %x\n",
+                          vt.getState(), singleState, multiState);
 
-        if (state != expState) {
+        if (vt.getState() != expState) {
             failed("Java thread state is wrong");
         }
         if ((singleState & jvmtiExpState) == 0) {

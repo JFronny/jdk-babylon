@@ -40,7 +40,9 @@ public class TestWrongBarrierDisable {
         String[] concurrent = {
                 "ShenandoahLoadRefBarrier",
                 "ShenandoahSATBBarrier",
-                "ShenandoahCloneBarrier"
+                "ShenandoahCASBarrier",
+                "ShenandoahCloneBarrier",
+                "ShenandoahStackWatermarkBarrier",
         };
 
         String[] generational = {

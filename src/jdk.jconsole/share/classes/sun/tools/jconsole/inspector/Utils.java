@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2004, 2022, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -123,10 +123,7 @@ public class Utils {
         if ((c = primitiveMap.get(className)) != null) {
             return c;
         }
-        if (editableTypes.contains(className)) {
-            return Class.forName(className);
-        }
-        return Object.class; // No need to load class.
+        return Class.forName(className);
     }
 
     /**
@@ -219,7 +216,7 @@ public class Utils {
                 className = className.substring(2, className.length() - 1);
             } else {
                 try {
-                    Class<?> c = Utils.getClass(className);
+                    Class<?> c = Class.forName(className);
                     className = c.getComponentType().getName();
                 } catch (ClassNotFoundException e) {
                     // Should not happen

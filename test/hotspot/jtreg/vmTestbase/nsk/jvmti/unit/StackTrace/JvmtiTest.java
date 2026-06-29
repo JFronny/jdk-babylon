@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,7 +23,6 @@
 
 package nsk.jvmti.unit.StackTrace;
 
-import jdk.test.lib.thread.ThreadWrapper;
 import java.io.PrintStream;
 
 public class JvmtiTest {
@@ -38,8 +37,8 @@ public class JvmtiTest {
     native static void RawMonitorEnter(int i);
     native static void RawMonitorExit(int i);
     native static void RawMonitorWait(int i);
-    native static void GetStackTrace(Thread t);
-    native static int GetFrameCount(Thread t);
+    native static void GetStackTrace(TestThread t);
+    native static int GetFrameCount(TestThread t);
 
 
     static volatile int thrCount = 0;
@@ -65,8 +64,8 @@ public class JvmtiTest {
 
 
         for (int i=0; i < THREADS_LIMIT-1; i++) {
-            GetStackTrace(t[i].getThread());
-            GetFrameCount(t[i].getThread());
+            GetStackTrace(t[i]);
+            GetFrameCount(t[i]);
         }
 
         RawMonitorExit(4);
@@ -82,7 +81,7 @@ public class JvmtiTest {
         return GetResult() + fail_id;
     }
 
-    static class TestThread extends ThreadWrapper {
+    static class TestThread extends Thread {
         static int counter=0;
         int ind;
         public TestThread(String name) {

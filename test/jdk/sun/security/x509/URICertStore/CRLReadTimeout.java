@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2023, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -22,101 +22,45 @@
  */
 
 /*
- * @test id=0
+ * @test
  * @bug 8191808 8179502
  * @summary check that CRL download is interrupted if it takes too long
  * @modules java.base/sun.security.x509
  *          java.base/sun.security.util
  * @library /test/lib
- * @run main/othervm -Djava.security.debug=certpath -Dcom.sun.security.crl.readtimeout=1
+ * @run main/othervm -Dcom.sun.security.crl.readtimeout=1
  *      CRLReadTimeout 5000 false
- */
-
-/*
- * @test id=1
- * @bug 8191808 8179502
- * @summary check that CRL download is interrupted if it takes too long
- * @modules java.base/sun.security.x509
- *          java.base/sun.security.util
- * @library /test/lib
- * @run main/othervm -Djava.security.debug=certpath -Dcom.sun.security.crl.readtimeout=1s
+ * @run main/othervm -Dcom.sun.security.crl.readtimeout=1s
  *      CRLReadTimeout 5000 false
- */
-
-/*
- * @test id=2
- * @bug 8191808 8179502
- * @summary check that CRL download is interrupted if it takes too long
- * @modules java.base/sun.security.x509
- *          java.base/sun.security.util
- * @library /test/lib
- * @run main/othervm -Djava.security.debug=certpath -Dcom.sun.security.crl.readtimeout=200
+ * @run main/othervm -Dcom.sun.security.crl.readtimeout=4
+ *      CRLReadTimeout 1000 true
+ * @run main/othervm -Dcom.sun.security.crl.readtimeout=1500ms
+ *      CRLReadTimeout 5000 false
+ * @run main/othervm -Dcom.sun.security.crl.readtimeout=4500ms
  *      CRLReadTimeout 1000 true
  */
 
-/*
- * @test id=3
- * @bug 8191808 8179502
- * @summary check that CRL download is interrupted if it takes too long
- * @modules java.base/sun.security.x509
- *          java.base/sun.security.util
- * @library /test/lib
- * @run main/othervm -Djava.security.debug=certpath -Dcom.sun.security.crl.readtimeout=1500ms
- *      CRLReadTimeout 5000 false
- */
-
-/*
- * @test id=4
- * @bug 8191808 8179502
- * @summary check that CRL download is interrupted if it takes too long
- * @modules java.base/sun.security.x509
- *          java.base/sun.security.util
- * @library /test/lib
- * @run main/othervm -Djava.security.debug=certpath -Dcom.sun.security.crl.readtimeout=4500ms
- *      CRLReadTimeout 100 true
- */
-
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.math.BigInteger;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketTimeoutException;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.PrivateKey;
-import java.security.cert.CRLException;
-import java.security.cert.CertPath;
-import java.security.cert.CertPathValidator;
-import java.security.cert.CertPathValidatorException;
-import java.security.cert.CertificateFactory;
-import java.security.cert.PKIXParameters;
-import java.security.cert.PKIXRevocationChecker;
-import java.security.cert.TrustAnchor;
-import java.security.cert.X509CRL;
-import java.security.cert.X509Certificate;
+import java.security.cert.*;
 import java.util.Date;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import static java.security.cert.PKIXRevocationChecker.Option.NO_FALLBACK;
-import static java.security.cert.PKIXRevocationChecker.Option.PREFER_CRLS;
-import static java.security.cert.PKIXRevocationChecker.Option.SOFT_FAIL;
+import static java.security.cert.PKIXRevocationChecker.Option.*;
 
 import com.sun.net.httpserver.HttpServer;
 import jdk.test.lib.SecurityTools;
 import jdk.test.lib.process.OutputAnalyzer;
 import sun.security.util.SignatureUtil;
-import sun.security.x509.AuthorityKeyIdentifierExtension;
-import sun.security.x509.CRLExtensions;
-import sun.security.x509.CRLNumberExtension;
-import sun.security.x509.KeyIdentifier;
-import sun.security.x509.X500Name;
-import sun.security.x509.X509CRLImpl;
+import sun.security.x509.*;
 
 public class CRLReadTimeout {
 
@@ -173,10 +117,9 @@ public class CRLReadTimeout {
         // unwrap soft fail exceptions and check for SocketTimeoutException
         List<CertPathValidatorException> softExc = prc.getSoftFailExceptions();
         if (expectedPass) {
-            if (!softExc.isEmpty()) {
+            if (softExc.size() > 0) {
                 throw new RuntimeException("Expected to pass, found " +
-                                           softExc.size() +
-                                           " soft fail exceptions");
+                        softExc.size() + " soft fail exceptions");
             }
         } else {
             boolean foundSockTOExc = false;
@@ -239,7 +182,7 @@ public class CRLReadTimeout {
         }
 
         public void start() throws IOException {
-            server.bind(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+            server.bind(new InetSocketAddress(0), 0);
             server.createContext("/crl", t -> {
                 try (InputStream is = t.getRequestBody()) {
                     is.readAllBytes();

@@ -54,7 +54,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import jdk.test.lib.security.Providers;
-import jtreg.SkippedException;
 
 public class ReadPKCS12 extends PKCS11Test {
 
@@ -67,7 +66,8 @@ public class ReadPKCS12 extends PKCS11Test {
     @Override
     public void main(Provider p) throws Exception {
         if (p.getService("Signature", "SHA1withECDSA") == null) {
-            throw new SkippedException("Provider does not support ECDSA");
+            System.out.println("Provider does not support ECDSA, skipping...");
+            return;
         }
 
         /*

@@ -360,36 +360,31 @@ final class DelayScheduler extends Thread {
                         u.heapIndex = -1;
                     }
                 }
-                if (t != null) {
-                    while (k > 0) {    // sift up if replaced with smaller value
-                        ScheduledForkJoinTask<?> parent; int pk;
-                        if ((parent = h[pk = (k - 1) >>> 2]) == null ||
-                            parent.when <= d)
-                            break;
-                        parent.heapIndex = k;
-                        h[k] = parent;
-                        k = pk;
-                    }
-                    for (int cs; (cs = (k << 2) + 1) < n; ) { // sift down
-                        ScheduledForkJoinTask<?> leastChild = null;
+                if (t != null) {       // sift down
+                    for (int cs; (cs = (k << 2) + 1) < n; ) {
+                        ScheduledForkJoinTask<?> leastChild = null, c;
                         int leastIndex = 0;
-                        long leastValue = d;    // at most 4 children
-                        for (int ck, j = 0; j < 4 && (ck = j + cs) < n; ++j) {
-                            ScheduledForkJoinTask<?> c; long cd;
-                            if ((c = h[ck]) != null && (cd = c.when) < leastValue) {
+                        long leastValue = Long.MAX_VALUE;
+                        for (int ck = cs, j = 4;;) { // at most 4 children
+                            if ((c = h[ck]) == null)
+                                break;
+                            long cd = c.when;
+                            if (c.status < 0 && alsoReplace < 0) {
+                                alsoReplace = ck;    // at most once per pass
+                                c.heapIndex = -1;
+                            }
+                            else if (leastChild == null || cd < leastValue) {
                                 leastValue = cd;
                                 leastIndex = ck;
                                 leastChild = c;
                             }
+                            if (--j == 0 || ++ck >= n)
+                                break;
                         }
-                        if (leastChild == null) // already ordered
+                        if (leastChild == null || d <= leastValue)
                             break;
-                        if ((h[k] = leastChild).status >= 0 || alsoReplace >= 0)
-                            leastChild.heapIndex = k;
-                        else {
-                            leastChild.heapIndex = -1;
-                            alsoReplace = k;
-                        }
+                        leastChild.heapIndex = k;
+                        h[k] = leastChild;
                         k = leastIndex;
                     }
                     t.heapIndex = k;
@@ -398,7 +393,6 @@ final class DelayScheduler extends Thread {
                 k = alsoReplace;
             }
         }
-        assert checkHeap(h, n);
         return n;
     }
 
@@ -455,33 +449,6 @@ final class DelayScheduler extends Thread {
                 }
             }
         }
-    }
-
-    /**
-     * Invariant checks
-     */
-    private static boolean checkHeap(ScheduledForkJoinTask<?>[] h, int n) {
-        for (int i = 0; i < h.length; ++i) {
-            ScheduledForkJoinTask<?> t = h[i];
-            if (t == null) {         // unused slots all null
-                if (i < n)
-                    return false;
-            }
-            else {
-                long v = t.when;
-                int x = t.heapIndex;
-                if (x != i && x >= 0) // valid index unless removing
-                    return false;
-                if (i > 0 && h[(i - 1) >>> 2].when > v) // ordered wrt parent
-                    return false;
-                int cs = (i << 2) + 1; // ordered wrt children
-                for (int ck, j = 0; j < 4 && (ck = cs + j) < n; ++j) {
-                    if (h[ck].when < v)
-                        return false;
-                }
-            }
-        }
-        return true;
     }
 
     /**

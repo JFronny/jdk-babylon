@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -29,16 +29,13 @@
  * @library /java/text/testlib
  * @build TestUtils LocaleCategory
  * @comment test user.xxx.display user.xxx.format properties
- * @run junit/othervm -Duser.language.display=ja
+ * @run main/othervm -Duser.language.display=ja
  *                   -Duser.language.format=zh LocaleCategory
  * @comment test user.xxx properties overriding user.xxx.display/format
- * @run junit/othervm -Duser.language=en
+ * @run main/othervm -Duser.language=en
  *                   -Duser.language.display=ja
  *                   -Duser.language.format=zh LocaleCategory
  */
-
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.Test;
 
 import java.util.Locale;
 
@@ -47,11 +44,12 @@ public class LocaleCategory {
     private static Locale disp = null;
     private static Locale fmt = null;
 
-    @Test
-    void test() {
+    public static void main(String[] args) {
         Locale reservedLocale = Locale.getDefault();
-        Assumptions.assumeFalse(TestUtils.hasSpecialVariant(reservedLocale),
-                reservedLocale + " has special variant");
+        if (TestUtils.hasSpecialVariant(reservedLocale)) {
+            System.out.println("Skipping this test because locale is " + reservedLocale);
+            return;
+        }
 
         try {
             Locale.Builder builder = new Locale.Builder();

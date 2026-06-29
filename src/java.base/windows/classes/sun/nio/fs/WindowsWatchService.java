@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2023, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -610,24 +610,23 @@ class WindowsWatchService
                 boolean criticalError = false;
                 int errorCode = info.error();
                 int messageSize = info.bytesTransferred();
-                if (errorCode != 0 &&
-                    errorCode != ERROR_MORE_DATA &&
-                    errorCode != ERROR_NOTIFY_ENUM_DIR) {
+                if (errorCode == ERROR_NOTIFY_ENUM_DIR) {
+                    // buffer overflow
+                    key.signalEvent(StandardWatchEventKinds.OVERFLOW, null);
+                } else if (errorCode != 0 && errorCode != ERROR_MORE_DATA) {
                     // ReadDirectoryChangesW failed
                     criticalError = true;
                 } else {
                     // ERROR_MORE_DATA is a warning about incomplete
                     // data transfer over TCP/UDP stack. For the case
-                    // [messageSize] is zero in most cases.
+                    // [messageSize] is zero in the most of cases.
 
                     if (messageSize > 0) {
                         // process non-empty events.
                         processEvents(key, messageSize);
-                    } else if (errorCode == 0 ||
-                               errorCode == ERROR_NOTIFY_ENUM_DIR) {
-                        // errorCode == 0: insufficient buffer size;
-                        //                 not described, but can happen.
-                        // errorCode == ERROR_NOTIFY_ENUM_DIR: buffer overflow
+                    } else if (errorCode == 0) {
+                        // insufficient buffer size
+                        // not described, but can happen.
                         key.signalEvent(StandardWatchEventKinds.OVERFLOW, null);
                     }
 

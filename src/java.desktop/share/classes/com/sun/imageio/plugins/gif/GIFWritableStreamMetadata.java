@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -55,12 +55,10 @@ class GIFWritableStreamMetadata extends GIFStreamMetadata {
         reset();
     }
 
-    @Override
     public boolean isReadOnly() {
         return false;
     }
 
-    @Override
     public void mergeTree(String formatName, Node root)
       throws IIOInvalidTreeException {
         if (formatName.equals(nativeMetadataFormatName)) {
@@ -79,7 +77,6 @@ class GIFWritableStreamMetadata extends GIFStreamMetadata {
         }
     }
 
-    @Override
     public void reset() {
         version = null;
 
@@ -93,7 +90,6 @@ class GIFWritableStreamMetadata extends GIFStreamMetadata {
         globalColorTable = null;
     }
 
-    @Override
     protected void mergeNativeTree(Node root) throws IIOInvalidTreeException {
         Node node = root;
         if (!node.getNodeName().equals(nativeMetadataFormatName)) {
@@ -168,7 +164,6 @@ class GIFWritableStreamMetadata extends GIFStreamMetadata {
         }
     }
 
-    @Override
     protected void mergeStandardTree(Node root)
       throws IIOInvalidTreeException {
         Node node = root;
@@ -263,7 +258,6 @@ class GIFWritableStreamMetadata extends GIFStreamMetadata {
         }
     }
 
-    @Override
     public void setFromTree(String formatName, Node root)
         throws IIOInvalidTreeException
     {

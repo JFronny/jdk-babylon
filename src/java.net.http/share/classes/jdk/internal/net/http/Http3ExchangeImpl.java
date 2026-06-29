@@ -81,8 +81,6 @@ import jdk.internal.net.http.qpack.writers.HeaderFrameWriter;
 import jdk.internal.net.http.quic.streams.QuicBidiStream;
 import jdk.internal.net.http.quic.streams.QuicStreamReader;
 import jdk.internal.net.http.quic.streams.QuicStreamWriter;
-
-import static jdk.internal.net.http.common.Utils.readContentLength;
 import static jdk.internal.net.http.http3.ConnectionSettings.UNLIMITED_MAX_FIELD_SECTION_SIZE;
 
 /**
@@ -556,12 +554,8 @@ final class Http3ExchangeImpl<T> extends Http3Stream<T> {
     }
 
     final class Http3StreamResponseSubscriber<U> extends HttpBodySubscriberWrapper<U> {
-
-        private final boolean cancelTimerOnTermination;
-
-        Http3StreamResponseSubscriber(BodySubscriber<U> subscriber, boolean cancelTimerOnTermination) {
+        Http3StreamResponseSubscriber(BodySubscriber<U> subscriber) {
             super(subscriber);
-            this.cancelTimerOnTermination = cancelTimerOnTermination;
         }
 
         @Override
@@ -572,13 +566,6 @@ final class Http3ExchangeImpl<T> extends Http3Stream<T> {
         @Override
         protected void register() {
             registerResponseSubscriber(this);
-        }
-
-        @Override
-        protected void onTermination() {
-            if (cancelTimerOnTermination) {
-                exchange.multi.cancelTimer();
-            }
         }
 
         @Override
@@ -603,10 +590,9 @@ final class Http3ExchangeImpl<T> extends Http3Stream<T> {
     Http3StreamResponseSubscriber<T> createResponseSubscriber(BodyHandler<T> handler,
                                                               ResponseInfo response) {
         if (debug.on()) debug.log("Creating body subscriber");
-        var cancelTimerOnTermination =
-                cancelTimerOnResponseBodySubscriberTermination(
-                        exchange.request().isWebSocket(), response.statusCode());
-        return new Http3StreamResponseSubscriber<>(handler.apply(response), cancelTimerOnTermination);
+        Http3StreamResponseSubscriber<T> subscriber =
+                new Http3StreamResponseSubscriber<>(handler.apply(response));
+        return subscriber;
     }
 
     @Override
@@ -1295,16 +1281,12 @@ final class Http3ExchangeImpl<T> extends Http3Stream<T> {
         if (Set.of("PUT", "DELETE", "OPTIONS", "TRACE").contains(method)) {
             throw new ProtocolException("push method not allowed pushId=" + pushId);
         }
-
-        // Read & validate `Content-Length`
-        long clen = readContentLength(
-                promiseHeaders, "illegal push headers for pushId=%s: ".formatted(pushId), -1);
+        long clen = promiseHeaders.firstValueAsLong("Content-Length").orElse(-1);
         if (clen > 0) {
-            throw new ProtocolException("push headers contain non-zero \"Content-Length\" for pushId=" + pushId);
+            throw new ProtocolException("push headers contain non-zero Content-Length for pushId=" + pushId);
         }
-
         if (promiseHeaders.firstValue("Transfer-Encoding").isPresent()) {
-            throw new ProtocolException("push headers contain \"Transfer-Encoding\" for pushId=" + pushId);
+            throw new ProtocolException("push headers contain Transfer-Encoding for pushId=" + pushId);
         }
 
 

@@ -32,7 +32,6 @@ import compiler.lib.ir_framework.*;
 /*
  * @test
  * @bug 8332268
- * @key randomness
  * @summary Test that Ideal transformations of ModINode* are being performed as expected.
  * @library /test/lib /
  * @run driver compiler.c2.irTests.ModINodeIdealizationTests

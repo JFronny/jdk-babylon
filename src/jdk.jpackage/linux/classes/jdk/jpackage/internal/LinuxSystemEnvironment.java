@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -30,16 +30,14 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
-import jdk.jpackage.internal.model.LinuxPackage;
 import jdk.jpackage.internal.model.PackageType;
 import jdk.jpackage.internal.model.StandardPackageType;
 import jdk.jpackage.internal.util.CompositeProxy;
 import jdk.jpackage.internal.util.Result;
 
-interface LinuxSystemEnvironment extends SystemEnvironment {
+public interface LinuxSystemEnvironment extends SystemEnvironment {
     boolean soLookupAvailable();
     PackageType nativePackageType();
-    LinuxPackageArch packageArch();
 
     static Result<LinuxSystemEnvironment> create() {
         return detectNativePackageType().map(LinuxSystemEnvironment::create).orElseGet(() -> {
@@ -47,12 +45,7 @@ interface LinuxSystemEnvironment extends SystemEnvironment {
         });
     }
 
-    static boolean isWithRequiredPackagesSearch(LinuxSystemEnvironment sysEnv, LinuxPackage pkg) {
-        Objects.requireNonNull(pkg);
-        return sysEnv.soLookupAvailable() && sysEnv.nativePackageType().equals(pkg.type());
-    }
-
-    static Optional<StandardPackageType> detectNativePackageType() {
+    static Optional<PackageType> detectNativePackageType() {
         if (Internal.isDebian()) {
             return Optional.of(StandardPackageType.LINUX_DEB);
         } else if (Internal.isRpm()) {
@@ -62,14 +55,13 @@ interface LinuxSystemEnvironment extends SystemEnvironment {
         }
     }
 
-    static Result<LinuxSystemEnvironment> create(StandardPackageType nativePackageType) {
-        return LinuxPackageArch.create(nativePackageType).map(arch -> {
-            return new Stub(LibProvidersLookup.supported(), nativePackageType, arch);
-        });
+    static Result<LinuxSystemEnvironment> create(PackageType nativePackageType) {
+        return Result.ofValue(new Stub(LibProvidersLookup.supported(),
+                Objects.requireNonNull(nativePackageType)));
     }
 
     static <T, U extends LinuxSystemEnvironment> U createWithMixin(Class<U> type, LinuxSystemEnvironment base, T mixin) {
-        return CompositeProxy.build().invokeTunnel(CompositeProxyTunnel.INSTANCE).create(type, base, mixin);
+        return CompositeProxy.create(type, base, mixin);
     }
 
     static <T, U extends LinuxSystemEnvironment> Result<U> mixin(Class<U> type,
@@ -87,7 +79,7 @@ interface LinuxSystemEnvironment extends SystemEnvironment {
         }
     }
 
-    record Stub(boolean soLookupAvailable, PackageType nativePackageType, LinuxPackageArch packageArch) implements LinuxSystemEnvironment {
+    record Stub(boolean soLookupAvailable, PackageType nativePackageType) implements LinuxSystemEnvironment {
     }
 
     static final class Internal {
@@ -96,7 +88,7 @@ interface LinuxSystemEnvironment extends SystemEnvironment {
             // we are just going to run "dpkg -s coreutils" and assume Debian
             // or derivative if no error is returned.
             try {
-                Executor.of("dpkg", "-s", "coreutils").quiet().executeExpectSuccess();
+                Executor.of("dpkg", "-s", "coreutils").executeExpectSuccess();
                 return true;
             } catch (IOException e) {
                 // just fall thru
@@ -108,7 +100,7 @@ interface LinuxSystemEnvironment extends SystemEnvironment {
             // we are just going to run "rpm -q rpm" and assume RPM
             // or derivative if no error is returned.
             try {
-                Executor.of("rpm", "-q", "rpm").quiet().executeExpectSuccess();
+                Executor.of("rpm", "-q", "rpm").executeExpectSuccess();
                 return true;
             } catch (IOException e) {
                 // just fall thru

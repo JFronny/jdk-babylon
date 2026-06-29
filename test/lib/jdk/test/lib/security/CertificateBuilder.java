@@ -153,26 +153,22 @@ public class CertificateBuilder {
      * @throws IOException
      */
     public static SubjectAlternativeNameExtension createDNSSubjectAltNameExt(
-            boolean critical, String... dnsNames) throws IOException {
+            boolean critical, String dnsName) throws IOException {
         GeneralNames gns = new GeneralNames();
-        for (String dnsName : dnsNames) {
-            gns.add(new GeneralName(new DNSName(dnsName)));
-        }
+        gns.add(new GeneralName(new DNSName(dnsName)));
         return new SubjectAlternativeNameExtension(critical, gns);
     }
 
     /**
      * Create a Subject Alternative Name extension for the given IP address
      * @param critical Sets the extension to critical or non-critical
-     * @param ipAddresses IP addresses to use in the extension
+     * @param ipAddress IP address to use in the extension
      * @throws IOException
      */
     public static SubjectAlternativeNameExtension createIPSubjectAltNameExt(
-            boolean critical, String... ipAddresses) throws IOException {
+            boolean critical, String ipAddress) throws IOException {
         GeneralNames gns = new GeneralNames();
-        for (String ip : ipAddresses) {
-            gns.add(new GeneralName(new IPAddressName(ip)));
-        }
+        gns.add(new GeneralName(new IPAddressName(ipAddress)));
         return new SubjectAlternativeNameExtension(critical, gns);
     }
 

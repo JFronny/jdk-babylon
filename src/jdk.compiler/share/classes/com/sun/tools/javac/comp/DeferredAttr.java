@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,7 +25,6 @@
 
 package com.sun.tools.javac.comp;
 
-import com.sun.source.tree.AnnotatedTypeTree;
 import com.sun.source.tree.LambdaExpressionTree.BodyKind;
 import com.sun.source.tree.NewClassTree;
 import com.sun.tools.javac.code.*;
@@ -63,7 +62,6 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import com.sun.source.tree.MemberReferenceTree;
-import com.sun.source.tree.ModifiersTree;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree.JCMemberReference.OverloadKind;
 
@@ -192,19 +190,6 @@ public class DeferredAttr extends JCTree.Visitor {
                     };
                     result.pos = t.pos;
                     return result;
-                }
-
-                @Override
-                public JCTree visitAnnotatedType(AnnotatedTypeTree node, Void p) {
-                    return copy(((JCAnnotatedType) node).underlyingType, p);
-                }
-
-                @Override
-                public JCTree visitModifiers(ModifiersTree node, Void p) {
-                    JCModifiers mods = (JCModifiers) super.visitModifiers(node, p);
-
-                    mods.annotations = List.nil();
-                    return mods;
                 }
             };
         deferredCopier = new TypeMapping<Void> () {
@@ -442,7 +427,7 @@ public class DeferredAttr extends JCTree.Visitor {
         ListBuffer<JCStatement> stats = new ListBuffer<>();
         stats.addAll(that.params);
         if (that.getBodyKind() == JCLambda.BodyKind.EXPRESSION) {
-            stats.add(make.at(that.pos).Return((JCExpression)that.body));
+            stats.add(make.Return((JCExpression)that.body));
         } else {
             stats.add((JCBlock)that.body);
         }
@@ -459,7 +444,7 @@ public class DeferredAttr extends JCTree.Visitor {
             if (lambdaBody.hasTag(Tag.RETURN)) {
                 lambdaBody = ((JCReturn)lambdaBody).expr;
             }
-            JCLambda speculativeLambda = make.at(that.pos).Lambda(args, lambdaBody);
+            JCLambda speculativeLambda = make.Lambda(args, lambdaBody);
             attr.preFlow(speculativeLambda);
             flow.analyzeLambda(env, speculativeLambda, make, false);
             return speculativeLambda;
@@ -860,7 +845,7 @@ public class DeferredAttr extends JCTree.Visitor {
 
                     if (descriptorType.getParameterTypes().length() != tree.params.length()) {
                         checkContext.report(tree,
-                                diags.fragment(Fragments.WrongNumberArgsInLambda(pt.tsym)));
+                                diags.fragment(Fragments.IncompatibleArgTypesInLambda));
                     }
 
                     Type currentReturnType = descriptorType.getReturnType();

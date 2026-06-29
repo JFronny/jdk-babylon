@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2013, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -335,20 +335,20 @@ public class StreamOpFlagsTest {
     }
 
     public void testSpliteratorSorted() {
-        class SortedEmptySpliterator<T extends Comparable<? super T>> implements Spliterator<T> {
-            final Comparator<T> c;
+        class SortedEmptySpliterator implements Spliterator<Object> {
+            final Comparator<Object> c;
 
-            SortedEmptySpliterator(Comparator<T> c) {
+            SortedEmptySpliterator(Comparator<Object> c) {
                 this.c = c;
             }
 
             @Override
-            public Spliterator<T> trySplit() {
+            public Spliterator<Object> trySplit() {
                 return null;
             }
 
             @Override
-            public boolean tryAdvance(Consumer<? super T> action) {
+            public boolean tryAdvance(Consumer<? super Object> action) {
                 return false;
             }
 
@@ -363,24 +363,19 @@ public class StreamOpFlagsTest {
             }
 
             @Override
-            public Comparator<? super T> getComparator() {
+            public Comparator<? super Object> getComparator() {
                 return c;
             }
-        }
+        };
 
         {
-            int flags = StreamOpFlag.fromCharacteristics(new SortedEmptySpliterator<>(null));
+            int flags = StreamOpFlag.fromCharacteristics(new SortedEmptySpliterator(null));
             assertEquals(flags, StreamOpFlag.IS_SORTED);
         }
 
         {
-            int flags = StreamOpFlag.fromCharacteristics(new SortedEmptySpliterator<>((a, b) -> 0));
+            int flags = StreamOpFlag.fromCharacteristics(new SortedEmptySpliterator((a, b) -> 0));
             assertEquals(flags, 0);
-        }
-
-        {
-            int flags = StreamOpFlag.fromCharacteristics(new SortedEmptySpliterator<String>(Comparator.naturalOrder()));
-            assertEquals(flags, StreamOpFlag.IS_SORTED);
         }
     }
 }

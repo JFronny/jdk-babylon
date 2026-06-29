@@ -24,7 +24,6 @@
 
 #include "gc/g1/g1CardTableClaimTable.inline.hpp"
 #include "gc/g1/g1CollectedHeap.inline.hpp"
-#include "gc/g1/g1ConcurrentRefineStats.inline.hpp"
 #include "gc/g1/g1ConcurrentRefineSweepTask.hpp"
 
 class G1RefineRegionClosure : public G1HeapRegionClosure {
@@ -34,6 +33,8 @@ class G1RefineRegionClosure : public G1HeapRegionClosure {
   G1CardTableClaimTable* _scan_state;
 
   uint _worker_id;
+
+  size_t _num_collections_at_start;
 
   bool has_work(G1HeapRegion* r) {
     return _scan_state->has_unclaimed_cards(r->hrm_index());
@@ -60,22 +61,22 @@ class G1RefineRegionClosure : public G1HeapRegionClosure {
     switch (res) {
       case G1RemSet::HasRefToCSet: {
         *dest_card = G1CardTable::g1_to_cset_card;
-        _per_worker_refine_data._cards_refer_to_cset++;
+        _refine_stats.inc_cards_refer_to_cset();
         break;
       }
       case G1RemSet::AlreadyToCSet: {
         *dest_card = G1CardTable::g1_to_cset_card;
-        _per_worker_refine_data._cards_already_refer_to_cset++;
+        _refine_stats.inc_cards_already_refer_to_cset();
         break;
       }
       case G1RemSet::NoCrossRegion: {
-        _per_worker_refine_data._cards_no_cross_region++;
+        _refine_stats.inc_cards_no_cross_region();
         break;
       }
       case G1RemSet::CouldNotParse: {
         // Could not refine - redirty with the original value.
         *dest_card = *source_card;
-        _per_worker_refine_data._cards_not_parsable++;
+        _refine_stats.inc_cards_not_parsable();
         break;
       }
       case G1RemSet::HasRefToOld : break; // Nothing special to do.
@@ -92,7 +93,7 @@ class G1RefineRegionClosure : public G1HeapRegionClosure {
 
 public:
   bool _completed;
-  G1LocalRefineStats _per_worker_refine_data;
+  G1ConcurrentRefineStats _refine_stats;
 
   G1RefineRegionClosure(uint worker_id, G1CardTableClaimTable* scan_state) :
     G1HeapRegionClosure(),
@@ -100,7 +101,7 @@ public:
     _scan_state(scan_state),
     _worker_id(worker_id),
     _completed(true),
-    _per_worker_refine_data() { }
+    _refine_stats() { }
 
   bool do_heap_region(G1HeapRegion* r) override {
 
@@ -141,7 +142,7 @@ public:
                                do_claimed_block(dirty_l, dirty_r, dest_card + pointer_delta(dirty_l, start_card, sizeof(CardValue)));
                                num_dirty_cards += pointer_delta(dirty_r, dirty_l, sizeof(CardValue));
 
-                               _per_worker_refine_data._refine_duration += os::elapsed_counter() - refine_start;
+                               _refine_stats.inc_refine_duration(os::elapsed_counter() - refine_start);
                              });
 
       if (VerifyDuringGC) {
@@ -150,8 +151,8 @@ public:
         }
       }
 
-      _per_worker_refine_data._cards_scanned += claim.size();
-      _per_worker_refine_data._cards_clean += claim.size() - num_dirty_cards;
+      _refine_stats.inc_cards_scanned(claim.size());
+      _refine_stats.inc_cards_clean(claim.size() - num_dirty_cards);
 
       if (SuspendibleThreadSet::should_yield()) {
         _completed = false;
@@ -183,8 +184,8 @@ void G1ConcurrentRefineSweepTask::work(uint worker_id) {
     _sweep_completed = false;
   }
 
-  _stats->inc_sweep_duration(os::elapsed_counter() - start);
-  _stats->add_atomic(&sweep_cl._per_worker_refine_data);
+  sweep_cl._refine_stats.inc_sweep_time(os::elapsed_counter() - start);
+  _stats->add_atomic(&sweep_cl._refine_stats);
 }
 
 bool G1ConcurrentRefineSweepTask::sweep_completed() const { return _sweep_completed; }

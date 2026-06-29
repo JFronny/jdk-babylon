@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2024, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -36,12 +36,11 @@ import jdk.internal.vm.annotation.Stable;
 /**
  * StructuredTaskScope implementation.
  */
-final class StructuredTaskScopeImpl<T, R, R_X extends Throwable>
-        implements StructuredTaskScope<T, R, R_X> {
+final class StructuredTaskScopeImpl<T, R> implements StructuredTaskScope<T, R> {
     private static final VarHandle CANCELLED =
             MhUtil.findVarHandle(MethodHandles.lookup(), "cancelled", boolean.class);
 
-    private final Joiner<? super T, ? extends R, R_X> joiner;
+    private final Joiner<? super T, ? extends R> joiner;
     private final ThreadFactory threadFactory;
     private final ThreadFlock flock;
 
@@ -62,7 +61,7 @@ final class StructuredTaskScopeImpl<T, R, R_X extends Throwable>
     private volatile boolean timeoutExpired;
 
     @SuppressWarnings("this-escape")
-    private StructuredTaskScopeImpl(Joiner<? super T, ? extends R, R_X> joiner,
+    private StructuredTaskScopeImpl(Joiner<? super T, ? extends R> joiner,
                                     ThreadFactory threadFactory,
                                     String name) {
         this.joiner = joiner;
@@ -75,12 +74,12 @@ final class StructuredTaskScopeImpl<T, R, R_X extends Throwable>
      * and with configuration that is the result of applying the given function to the
      * default configuration.
      */
-    static <T, R, R_X extends Throwable> StructuredTaskScope<T, R, R_X>
-    open(Joiner<? super T, ? extends R, R_X> joiner, UnaryOperator<Configuration> configOperator) {
+    static <T, R> StructuredTaskScope<T, R> open(Joiner<? super T, ? extends R> joiner,
+                                                 UnaryOperator<Configuration> configOperator) {
         Objects.requireNonNull(joiner);
 
         var config = (ConfigImpl) configOperator.apply(ConfigImpl.defaultConfig());
-        var scope = new StructuredTaskScopeImpl<T, R, R_X>(joiner, config.threadFactory(), config.name());
+        var scope = new StructuredTaskScopeImpl<T, R>(joiner, config.threadFactory(), config.name());
 
         // schedule timeout
         Duration timeout = config.timeout();
@@ -174,7 +173,7 @@ final class StructuredTaskScopeImpl<T, R, R_X extends Throwable>
     private <U extends T> void onComplete(SubtaskImpl<U> subtask) {
         assert subtask.state() != Subtask.State.UNAVAILABLE;
         @SuppressWarnings("unchecked")
-        var j = (Joiner<U, ? extends R, ? extends Throwable>) joiner;
+        var j = (Joiner<U, ? extends R>) joiner;
         if (j.onComplete(subtask)) {
             cancel();
         }
@@ -193,7 +192,7 @@ final class StructuredTaskScopeImpl<T, R, R_X extends Throwable>
 
         // notify joiner, even if cancelled
         @SuppressWarnings("unchecked")
-        var j = (Joiner<U, ? extends R, ? extends Throwable>) joiner;
+        var j = (Joiner<U, ? extends R>) joiner;
         if (j.onFork(subtask)) {
             cancel();
         }
@@ -229,7 +228,7 @@ final class StructuredTaskScopeImpl<T, R, R_X extends Throwable>
     }
 
     @Override
-    public R join() throws R_X, InterruptedException {
+    public R join() throws InterruptedException {
         ensureOwner();
         if (state >= ST_JOIN_COMPLETED) {
             throw new IllegalStateException("Already joined or scope is closed");
@@ -246,13 +245,19 @@ final class StructuredTaskScopeImpl<T, R, R_X extends Throwable>
         // all subtasks completed or scope cancelled
         state = ST_JOIN_COMPLETED;
 
-        // invoke joiner result() or timeout() method
+        // invoke joiner onTimeout if timeout expired
         if (timeoutExpired) {
-            cancel();  // ensure cancelled before calling joiner
-            return joiner.timeout();
+            cancel();  // ensure cancelled before calling onTimeout
+            joiner.onTimeout();
         } else {
             cancelTimeout();
+        }
+
+        // invoke joiner to get result
+        try {
             return joiner.result();
+        } catch (Throwable e) {
+            throw new FailedException(e);
         }
     }
 
@@ -305,12 +310,12 @@ final class StructuredTaskScopeImpl<T, R, R_X extends Throwable>
             }
         }
 
-        private final StructuredTaskScopeImpl<? super T, ?, ?> scope;
+        private final StructuredTaskScopeImpl<? super T, ?> scope;
         private final Callable<? extends T> task;
         private volatile Object result;
         @Stable private Thread thread;
 
-        SubtaskImpl(StructuredTaskScopeImpl<? super T, ?, ?> scope, Callable<? extends T> task) {
+        SubtaskImpl(StructuredTaskScopeImpl<? super T, ?> scope, Callable<? extends T> task) {
             this.scope = scope;
             this.task = task;
         }

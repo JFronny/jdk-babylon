@@ -110,7 +110,6 @@ class MarkerSegment implements Cloneable {
     /**
      * Deep copy of data array.
      */
-    @Override
     protected Object clone() {
         MarkerSegment newGuy = null;
         try {

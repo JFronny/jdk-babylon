@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1998, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -46,6 +46,9 @@
 #endif
 #ifdef COMPILER2
 #include "opto/optoreg.hpp"
+#endif
+#if INCLUDE_JVMCI
+#include "jvmci/jvmci_globals.hpp"
 #endif
 
 static_assert(sizeof(oop) == sizeof(intptr_t), "Derived pointer sanity check");
@@ -392,9 +395,9 @@ class AddDerivedOop : public DerivedOopClosure {
   };
 
   virtual void do_derived_oop(derived_base* base, derived_pointer* derived) {
-#ifdef COMPILER2
+#if COMPILER2_OR_JVMCI
     DerivedPointerTable::add(derived, base);
-#endif // COMPILER2
+#endif // COMPILER2_OR_JVMCI
   }
 };
 
@@ -866,12 +869,12 @@ ImmutableOopMapSet* ImmutableOopMapSet::clone() const {
 }
 
 void ImmutableOopMapSet::operator delete(void* p) {
-  FREE_C_HEAP_ARRAY(p);
+  FREE_C_HEAP_ARRAY(unsigned char, p);
 }
 
 //------------------------------DerivedPointerTable---------------------------
 
-#ifdef COMPILER2
+#if COMPILER2_OR_JVMCI
 
 class DerivedPointerTable::Entry : public CHeapObj<mtCompiler> {
   derived_pointer* _location; // Location of derived pointer, also pointing to base
@@ -970,4 +973,4 @@ void DerivedPointerTable::update_pointers() {
   _active = false;
 }
 
-#endif // COMPILER2
+#endif // COMPILER2_OR_JVMCI

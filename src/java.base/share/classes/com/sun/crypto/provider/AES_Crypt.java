@@ -54,11 +54,11 @@ final class AES_Crypt extends SymmetricCipher {
     private int rounds;
     private byte[] prevKey = null;
 
-    // Following attributes are specific to Intrinsics, where sessionKe is the
-    // unprocessed key that is also used for decryption on PPC64, S390 and
-    // RISCV64 architectures. Other ones use sessionKd for decryption.
-    private int[] sessionKe = null; // key for encryption
-    private int[] sessionKd = null; // preprocessed key for decryption
+    // Following two attributes are specific to Intrinsics where sessionK is
+    // used for PPC64, S390, and RISCV64 architectures, whereas K is used for
+    // everything else.
+    private int[][] sessionK = null;
+    private int[] K = null;
 
     // Round constant
     private static final int[] RCON = {
@@ -904,6 +904,7 @@ final class AES_Crypt extends SymmetricCipher {
      */
     void init(boolean decrypting, String algorithm, byte[] key)
             throws InvalidKeyException {
+        int decrypt = decrypting ? 1 : 0;
 
         if (!algorithm.equalsIgnoreCase("AES")
                 && !algorithm.equalsIgnoreCase("Rijndael")) {
@@ -919,25 +920,21 @@ final class AES_Crypt extends SymmetricCipher {
             throw new InvalidKeyException("Invalid key length (" + key.length
                     + ").");
         }
-
         if (!MessageDigest.isEqual(prevKey, key)) {
-            if (sessionKe != null) {
-                Arrays.fill(sessionKe, 0);
+            if (sessionK == null) {
+                sessionK = new int[2][];
+            } else {
+                Arrays.fill(sessionK[0], 0);
+                Arrays.fill(sessionK[1], 0);
             }
-            sessionKe = genRoundKeys(key, rounds);
-            if (sessionKd != null) {
-                Arrays.fill(sessionKd, 0);
-                sessionKd = null;
-            }
+            sessionK[0] = genRoundKeys(key, rounds);
+            sessionK[1] = genInvRoundKeys(sessionK[0], rounds);
             if (prevKey != null) {
                 Arrays.fill(prevKey, (byte) 0);
             }
             prevKey = key.clone();
         }
-
-        if (decrypting && (sessionKd == null)) {
-            sessionKd = genInvRoundKeys(sessionKe, rounds);
-        }
+        K = sessionK[decrypt];
     }
 
     /**
@@ -1038,7 +1035,6 @@ final class AES_Crypt extends SymmetricCipher {
      */
     @IntrinsicCandidate
     private void implEncryptBlock(byte[] p, int po, byte[] c, int co) {
-        int[] K = sessionKe;
         int ti0, ti1, ti2, ti3;
         int a0, a1, a2, a3;
         int w = K.length - WB;
@@ -1217,7 +1213,6 @@ final class AES_Crypt extends SymmetricCipher {
      */
     @IntrinsicCandidate
     private void implDecryptBlock(byte[] c, int co, byte[] p, int po) {
-        int[] K = sessionKd;
         int ti0, ti1, ti2, ti3;
         int a0, a1, a2, a3;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2018, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,7 +25,7 @@
  * @test
  * @bug 8206120
  * @summary Test whether lenient era is accepted in JapaneseImperialCalendar
- * @run junit/othervm JapaneseLenientEraTest
+ * @run testng/othervm JapaneseLenientEraTest
  */
 
 import java.text.DateFormat;
@@ -34,15 +34,15 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
+import static org.testng.Assert.assertEquals;
 
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@Test
 public class JapaneseLenientEraTest {
 
-    Object[][] lenientEra() {
+    @DataProvider(name="lenientEra")
+    Object[][] names() {
         return new Object[][] {
             // lenient era/year, strict era/year
             { "Meiji 123", "Heisei 2" },
@@ -51,8 +51,7 @@ public class JapaneseLenientEraTest {
         };
     }
 
-    @ParameterizedTest
-    @MethodSource("lenientEra")
+    @Test(dataProvider="lenientEra")
     public void testLenientEra(String lenient, String strict) throws Exception {
         Calendar c = new Calendar.Builder()
             .setCalendarType("japanese")
@@ -62,6 +61,6 @@ public class JapaneseLenientEraTest {
         Date lenDate = df.parse(lenient + "-01-01");
         df.setLenient(false);
         Date strDate = df.parse(strict + "-01-01");
-        assertEquals(strDate, lenDate);
+        assertEquals(lenDate, strDate);
     }
 }

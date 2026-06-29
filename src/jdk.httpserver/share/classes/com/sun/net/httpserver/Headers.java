@@ -36,7 +36,6 @@ import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import sun.net.httpserver.UnmodifiableHeaders;
-import sun.net.httpserver.Utils;
 
 /**
  * HTTP request and response headers are represented by this class which
@@ -63,9 +62,9 @@ import sun.net.httpserver.Utils;
  * <ul>
  *     <li>{@link #getFirst(String)} returns a single valued header or the first
  *     value of a multi-valued header.
- *     <li>{@link #add(String, String)} adds the given header value to the list
+ *     <li>{@link #add(String,String)} adds the given header value to the list
  *     for the given key.
- *     <li>{@link #set(String, String)} sets the given header field to the single
+ *     <li>{@link #set(String,String)} sets the given header field to the single
  *     value given overwriting any existing values in the value list.
  * </ul>
  *
@@ -81,9 +80,9 @@ import sun.net.httpserver.Utils;
  * {@code null} keys will never be present in HTTP request or response headers.
  * @since 1.6
  */
-public class Headers implements Map<String, List<String>> {
+public class Headers implements Map<String,List<String>> {
 
-    HashMap<String, List<String>> map;
+    HashMap<String,List<String>> map;
 
     /**
      * Creates an empty instance of {@code Headers}.
@@ -100,7 +99,7 @@ public class Headers implements Map<String, List<String>> {
      *                              null.
      * @since 18
      */
-    public Headers(Map<String, List<String>> headers) {
+    public Headers(Map<String,List<String>> headers) {
         Objects.requireNonNull(headers);
         var h = headers.entrySet().stream()
                 .collect(Collectors.toUnmodifiableMap(
@@ -217,13 +216,8 @@ public class Headers implements Map<String, List<String>> {
 
     @Override
     public List<String> put(String key, List<String> value) {
-        // checkHeader is called in this class to fail fast
-        // It also must be called in sendResponseHeaders because
-        // Headers instances internal state can be modified
-        // external to these methods.
-        Utils.checkHeader(key, false);
         for (String v : value)
-            Utils.checkHeader(v, true);
+            checkValue(v);
         return map.put(normalize(key), value);
     }
 
@@ -235,15 +229,38 @@ public class Headers implements Map<String, List<String>> {
      * @param value the value to add to the header
      */
     public void add(String key, String value) {
-        Utils.checkHeader(key, false);
-        Utils.checkHeader(value, true);
+        checkValue(value);
         String k = normalize(key);
         List<String> l = map.get(k);
         if (l == null) {
             l = new LinkedList<>();
-            map.put(k, l);
+            map.put(k,l);
         }
         l.add(value);
+    }
+
+    private static void checkValue(String value) {
+        int len = value.length();
+        for (int i=0; i<len; i++) {
+            char c = value.charAt(i);
+            if (c == '\r') {
+                // is allowed if it is followed by \n and a whitespace char
+                if (i >= len - 2) {
+                    throw new IllegalArgumentException("Illegal CR found in header");
+                }
+                char c1 = value.charAt(i+1);
+                char c2 = value.charAt(i+2);
+                if (c1 != '\n') {
+                    throw new IllegalArgumentException("Illegal char found after CR in header");
+                }
+                if (c2 != ' ' && c2 != '\t') {
+                    throw new IllegalArgumentException("No whitespace found after CRLF in header");
+                }
+                i+=2;
+            } else if (c == '\n') {
+                throw new IllegalArgumentException("Illegal LF found in header");
+            }
+        }
     }
 
     /**
@@ -287,7 +304,7 @@ public class Headers implements Map<String, List<String>> {
     public void replaceAll(BiFunction<? super String, ? super List<String>, ? extends List<String>> function) {
         var f = function.andThen(values -> {
             Objects.requireNonNull(values);
-            values.forEach(value -> Utils.checkHeader(value, true));
+            values.forEach(Headers::checkValue);
             return values;
         });
         Map.super.replaceAll(f);
@@ -355,7 +372,7 @@ public class Headers implements Map<String, List<String>> {
      *                              null.
      * @since 18
      */
-    public static Headers of(Map<String, List<String>> headers) {
+    public static Headers of(Map<String,List<String>> headers) {
         return new UnmodifiableHeaders(new Headers(headers));
     }
 }

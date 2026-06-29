@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2018, 2023, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -30,16 +30,14 @@
  * @build jdk.test.lib.net.SimpleSSLContext
  *        ReferenceTracker AbstractThrowingPushPromises ThrowingPushPromisesAsInputStreamIO
  *        jdk.httpclient.test.lib.common.HttpServerAdapters
- * @run junit/othervm -Djdk.internal.httpclient.debug=true ${test.main.class}
+ * @run testng/othervm -Djdk.internal.httpclient.debug=true ThrowingPushPromisesAsInputStreamIO
  */
 
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.testng.annotations.Test;
 
 public class ThrowingPushPromisesAsInputStreamIO extends AbstractThrowingPushPromises {
 
-    @ParameterizedTest
-    @MethodSource("ioVariants")
+    @Test(dataProvider = "ioVariants")
     public void testThrowingAsInputStream(String uri, boolean sameClient, Thrower thrower)
             throws Exception {
         super.testThrowingAsInputStreamImpl(uri, sameClient, thrower);

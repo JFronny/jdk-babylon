@@ -63,7 +63,7 @@ OS=`uname -s`;
 #
 IsWindows() {
     case "$OS" in
-        Windows* | CYGWIN* | MSYS* | MINGW* )
+        Windows* | CYGWIN* )
             printf "true"
 	;;
 	* )

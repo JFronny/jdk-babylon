@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,16 +25,16 @@
 package jdk.jpackage.internal.util.function;
 
 @FunctionalInterface
-public interface ThrowingRunnable<E extends Exception> {
+public interface ThrowingRunnable {
 
-    void run() throws E;
+    void run() throws Throwable;
 
-    public static Runnable toRunnable(ThrowingRunnable<? extends Exception> v) {
+    public static Runnable toRunnable(ThrowingRunnable v) {
         return () -> {
             try {
                 v.run();
-            } catch (Exception ex) {
-                throw ExceptionBox.toUnchecked(ex);
+            } catch (Throwable ex) {
+                throw ExceptionBox.rethrowUnchecked(ex);
             }
         };
     }

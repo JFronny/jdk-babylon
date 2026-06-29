@@ -25,19 +25,12 @@
 #include "register_arm.hpp"
 #include "utilities/debug.hpp"
 
-Register::RegisterImpl all_RegisterImpls [Register::number_of_registers + 1];
-FloatRegister::FloatRegisterImpl all_FloatRegisterImpls [FloatRegister::number_of_registers + 1];
-VFPSystemRegister::VFPSystemRegisterImpl all_VFPSystemRegisterImpls [VFPSystemRegister::number_of_registers + 1] {
-  { -1 }, //vfpsnoreg
-  { VFPSystemRegister::FPSID },
-  { VFPSystemRegister::FPSCR },
-  { VFPSystemRegister::MVFR0 },
-  { VFPSystemRegister::MVFR1 }
-};
+const int ConcreteRegisterImpl::max_gpr = ConcreteRegisterImpl::num_gpr;
+const int ConcreteRegisterImpl::max_fpr = ConcreteRegisterImpl::num_fpr +
+                                          ConcreteRegisterImpl::max_gpr;
 
-const char* Register::RegisterImpl::name() const {
-  static const char* names[number_of_registers + 1] = {
-    "noreg",
+const char* RegisterImpl::name() const {
+  const char* names[number_of_registers] = {
     "r0", "r1", "r2", "r3", "r4", "r5", "r6",
 #if (FP_REG_NUM == 7)
     "fp",
@@ -52,14 +45,13 @@ const char* Register::RegisterImpl::name() const {
 #endif
     "r12", "sp", "lr", "pc"
   };
-  return names[encoding() + 1];
+  return is_valid() ? names[encoding()] : "noreg";
 }
 
-const char* FloatRegister::FloatRegisterImpl::name() const {
-  static const char* names[number_of_registers + 1] = {
-    "fnoreg",
-    "s0",  "s1",  "s2",  "s3",  "s4",  "s5",  "s6",  "s7",
-    "s8",  "s9", "s10", "s11", "s12", "s13", "s14", "s15",
+const char* FloatRegisterImpl::name() const {
+  const char* names[number_of_registers] = {
+     "s0",  "s1",  "s2",  "s3",  "s4",  "s5",  "s6",  "s7",
+     "s8",  "s9", "s10", "s11", "s12", "s13", "s14", "s15",
     "s16", "s17", "s18", "s19", "s20", "s21", "s22", "s23",
     "s24", "s25", "s26", "s27", "s28", "s29", "s30", "s31"
 #ifdef COMPILER2
@@ -69,5 +61,5 @@ const char* FloatRegister::FloatRegisterImpl::name() const {
     "s56", "s57?","s58", "s59?","s60", "s61?","s62", "s63?"
 #endif
   };
-  return names[encoding() + 1];
+  return is_valid() ? names[encoding()] : "fnoreg";
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,11 +23,8 @@
 
 /*
  * @test
- * @bug 8234744 8383813
+ * @bug 8234744
  * @summary KeyStore.store can write wrong type of file
- * @run main WrongStoreType
- * @run main/othervm -Dkeystore.pkcs12.macAlgorithm=HmacPBESHA256 WrongStoreType
- * @run main/othervm -Dkeystore.pkcs12.macAlgorithm=PBEWithHmacSHA256 WrongStoreType
  */
 
 import java.io.File;
@@ -48,9 +45,7 @@ public class WrongStoreType {
         ks.load(null, null);
         System.out.println(ks.getType());
 
-        Path emptyfile = Path.of("emptyfile");
-        Files.deleteIfExists(emptyfile);
-        Files.createFile(emptyfile);
+        Files.createFile(Path.of("emptyfile"));
         try (InputStream in = new FileInputStream("emptyfile")) {
             ks.load(in, password);
         } catch (Exception e) {

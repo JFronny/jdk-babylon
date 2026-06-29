@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,17 +27,17 @@ package jdk.jpackage.internal.util.function;
 import java.util.function.BiFunction;
 
 @FunctionalInterface
-public interface ThrowingBiFunction<T, U, R, E extends Exception> {
+public interface ThrowingBiFunction<T, U, R> {
 
-    R apply(T t, U u) throws E;
+    R apply(T t, U u) throws Throwable;
 
     public static <T, U, R> BiFunction<T, U, R> toBiFunction(
-            ThrowingBiFunction<T, U, R, ? extends Exception> v) {
+            ThrowingBiFunction<T, U, R> v) {
         return (t, u) -> {
             try {
                 return v.apply(t, u);
-            } catch (Exception ex) {
-                throw ExceptionBox.toUnchecked(ex);
+            } catch (Throwable ex) {
+                throw ExceptionBox.rethrowUnchecked(ex);
             }
         };
     }

@@ -99,13 +99,13 @@ public class SSLEngineWithStapling {
     /*
      * Enables the JSSE system debugging system property:
      *
-     *     -Djavax.net.debug=ssl,handshake
+     *     -Djavax.net.debug=all
      *
      * This gives a lot of low-level information about operations underway,
      * including specific handshake messages, and might be best examined
      * after gaining some familiarity with this application.
      */
-    private static final boolean debug = false;
+    private static final boolean debug = true;
 
     private SSLEngine clientEngine;     // client Engine
     private ByteBuffer clientOut;       // write side of clientEngine
@@ -151,7 +151,7 @@ public class SSLEngineWithStapling {
      */
     public static void main(String args[]) throws Exception {
         if (debug) {
-            System.setProperty("javax.net.debug", "ssl,handshake");
+            System.setProperty("javax.net.debug", "ssl:handshake");
         }
 
         // Create the PKI we will use for the test and start the OCSP servers

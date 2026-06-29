@@ -117,7 +117,6 @@ public class Http2TestServerConnection {
     final Properties properties;
     volatile boolean stopping;
     volatile int nextPushStreamId = 2;
-    public volatile boolean closeConnOnIncomingGoAway = true;
     ConcurrentLinkedQueue<PingRequest> pings = new ConcurrentLinkedQueue<>();
     // the max stream id of a processed H2 request. -1 implies none were processed.
     private final AtomicInteger maxProcessedRequestStreamId = new AtomicInteger(-1);
@@ -538,12 +537,8 @@ public class Http2TestServerConnection {
             outputQ.put(frame);
             return;
         } else if (f instanceof GoAwayFrame) {
-            if (closeConnOnIncomingGoAway) {
-                System.err.println(server.name + ": Closing connection: "+ f.toString());
-                close(ErrorFrame.NO_ERROR);
-            } else {
-                System.err.println(server.name + ": Will not close connection for incoming GOAWAY: " + f);
-            }
+            System.err.println(server.name + ": Closing connection: "+ f.toString());
+            close(ErrorFrame.NO_ERROR);
         } else if (f instanceof PingFrame) {
             handlePing((PingFrame)f);
         } else

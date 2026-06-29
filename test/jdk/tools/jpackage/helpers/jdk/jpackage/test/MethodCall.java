@@ -40,7 +40,7 @@ import java.util.stream.Stream;
 import jdk.jpackage.internal.util.function.ThrowingConsumer;
 import jdk.jpackage.test.TestInstance.TestDesc;
 
-class MethodCall implements ThrowingConsumer<Object, Exception> {
+class MethodCall implements ThrowingConsumer<Object> {
 
     MethodCall(Object[] instanceCtorArgs, Method method, Object ... args) {
         Objects.requireNonNull(instanceCtorArgs);
@@ -107,7 +107,7 @@ class MethodCall implements ThrowingConsumer<Object, Exception> {
     }
 
     @Override
-    public void accept(Object thiz) throws Exception {
+    public void accept(Object thiz) throws Throwable {
         method.invoke(thiz, methodArgs);
     }
 

@@ -34,7 +34,6 @@ import java.util.Random;
 /*
  * @test
  * @bug 8318446 8331054 8331311 8335392 8347405
- * @key randomness
  * @summary Test merging of consecutive stores
  * @modules java.base/jdk.internal.misc
  * @library /test/lib /
@@ -44,7 +43,6 @@ import java.util.Random;
 /*
  * @test
  * @bug 8318446 8331054 8331311 8335392 8347405
- * @key randomness
  * @summary Test merging of consecutive stores
  * @modules java.base/jdk.internal.misc
  * @library /test/lib /
@@ -54,7 +52,6 @@ import java.util.Random;
 /*
  * @test
  * @bug 8318446 8331054 8331311 8335392 8348959 8351414
- * @key randomness
  * @summary Test merging of consecutive stores
  * @modules java.base/jdk.internal.misc
  * @library /test/lib /

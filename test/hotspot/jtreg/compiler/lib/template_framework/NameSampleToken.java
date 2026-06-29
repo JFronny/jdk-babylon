@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -31,14 +31,13 @@ import java.util.function.Function;
  * name and type of the sampled name, which are then available in the inner scope
  * created by the provided function.
  */
-record NameSampleToken<N extends Name>(
-        Class<N> clazz,
+record NameSampleToken<N>(
         NameSet.Predicate predicate,
         String name,
         String type,
         Function<N, ScopeToken> function) implements Token {
 
     ScopeToken getScopeToken(Name n) {
-        return function().apply(clazz.cast(n));
+        return function().apply((N)n);
     }
 }

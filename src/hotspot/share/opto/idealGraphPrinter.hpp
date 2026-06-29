@@ -46,9 +46,8 @@ class ConnectionGraph;
 class Parse;
 
 class IdealGraphPrinter : public CHeapObj<mtCompiler> {
-  friend class PrintProperties;
+ private:
 
-private:
   static const char *INDENT;
   static const char *TOP_ELEMENT;
   static const char *GROUP_ELEMENT;

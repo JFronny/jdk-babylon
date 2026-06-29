@@ -221,8 +221,6 @@ public class VerifierTest implements Opcodes {
                 runtime_arg1 = runtime_arg2 = runtime_arg3 = runtime_setting;
             }
             TestCommon.run("-cp", jar,
-                           "-Xms256m",
-                           "-Xmx256m",
                            "-Xlog:cds",
                            runtime_arg1, runtime_arg2, runtime_arg3,
                            "VerifierTest0")
@@ -304,8 +302,6 @@ public class VerifierTest implements Opcodes {
                 runtime_arg1 = runtime_arg2 = runtime_arg3 = runtime_setting;
             }
             TestCommon.run("-cp", jar,
-                           "-Xms256m",
-                           "-Xmx256m",
                            "-Xlog:cds",
                            runtime_arg1, runtime_arg2, runtime_arg3,
                            "Hi")

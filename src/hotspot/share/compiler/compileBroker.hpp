@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1999, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -33,10 +33,13 @@
 #include "runtime/atomicAccess.hpp"
 #include "runtime/perfDataTypes.hpp"
 #include "utilities/stack.hpp"
+#if INCLUDE_JVMCI
+#include "jvmci/jvmciCompiler.hpp"
+#endif
 
 class nmethod;
 
-#if defined(ASSERT) && defined(COMPILER2)
+#if defined(ASSERT) && COMPILER2_OR_JVMCI
 // Stress testing. Dedicated threads revert optimizations based on escape analysis concurrently to
 // the running java application.  Configured with vm options DeoptimizeObjectsALot*.
 class DeoptimizeObjectsALotThread : public JavaThread {
@@ -50,7 +53,7 @@ public:
 
   bool is_hidden_from_external_view() const      { return true; }
 };
-#endif // defined(ASSERT) && defined(COMPILER2)
+#endif
 
 // CompilerCounters
 //
@@ -270,6 +273,10 @@ class CompileBroker: AllStatic {
                                           CompileTask::CompileReason compile_reason,
                                           bool                blocking);
   static void wait_for_completion(CompileTask* task);
+#if INCLUDE_JVMCI
+  static bool wait_for_jvmci_completion(JVMCICompiler* comp, CompileTask* task, JavaThread* thread);
+#endif
+
   static void free_buffer_blob_if_allocated(CompilerThread* thread);
 
   static void invoke_compiler_on_method(CompileTask* task);

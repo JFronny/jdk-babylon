@@ -31,6 +31,7 @@
  * @run main/othervm AddTrustedCert
  */
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.security.KeyStore;
@@ -46,7 +47,9 @@ import java.util.TreeSet;
 public class AddTrustedCert extends SecmodTest {
 
     public static void main(String[] args) throws Exception {
-        initSecmod();
+        if (initSecmod() == false) {
+            return;
+        }
 
         X509Certificate cert;
         try (InputStream in = new FileInputStream(BASE + SEP + "anchor.cer")) {

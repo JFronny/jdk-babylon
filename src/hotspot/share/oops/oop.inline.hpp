@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -95,19 +95,49 @@ void oopDesc::init_mark() {
 }
 
 Klass* oopDesc::klass() const {
-  return CompressedKlassPointers::decode_not_null(narrow_klass());
+  switch (ObjLayout::klass_mode()) {
+    case ObjLayout::Compact:
+      return mark().klass();
+    case ObjLayout::Compressed:
+      return CompressedKlassPointers::decode_not_null(_metadata._compressed_klass);
+    default:
+      return _metadata._klass;
+  }
 }
 
 Klass* oopDesc::klass_or_null() const {
-  return CompressedKlassPointers::decode(narrow_klass());
+  switch (ObjLayout::klass_mode()) {
+    case ObjLayout::Compact:
+      return mark().klass_or_null();
+    case ObjLayout::Compressed:
+      return CompressedKlassPointers::decode(_metadata._compressed_klass);
+    default:
+      return _metadata._klass;
+  }
 }
 
 Klass* oopDesc::klass_or_null_acquire() const {
-  return CompressedKlassPointers::decode(narrow_klass_acquire());
+  switch (ObjLayout::klass_mode()) {
+    case ObjLayout::Compact:
+      return mark_acquire().klass();
+    case ObjLayout::Compressed: {
+      narrowKlass narrow_klass = AtomicAccess::load_acquire(&_metadata._compressed_klass);
+      return CompressedKlassPointers::decode(narrow_klass);
+    }
+    default:
+      return AtomicAccess::load_acquire(&_metadata._klass);
+  }
 }
 
 Klass* oopDesc::klass_without_asserts() const {
-  return CompressedKlassPointers::decode_without_asserts(narrow_klass());
+  switch (ObjLayout::klass_mode()) {
+    case ObjLayout::Compact:
+      return mark().klass_without_asserts();
+    case ObjLayout::Compressed:
+      return CompressedKlassPointers::decode_without_asserts(_metadata._compressed_klass);
+    default:
+      return _metadata._klass;
+  }
 }
 
 narrowKlass oopDesc::narrow_klass() const {
@@ -115,18 +145,7 @@ narrowKlass oopDesc::narrow_klass() const {
     case ObjLayout::Compact:
       return mark().narrow_klass();
     case ObjLayout::Compressed:
-      return _compressed_klass;
-    default:
-      ShouldNotReachHere();
-  }
-}
-
-narrowKlass oopDesc::narrow_klass_acquire() const {
-  switch (ObjLayout::klass_mode()) {
-    case ObjLayout::Compact:
-      return mark_acquire().narrow_klass();
-    case ObjLayout::Compressed:
-      return AtomicAccess::load_acquire(&_compressed_klass);
+      return _metadata._compressed_klass;
     default:
       ShouldNotReachHere();
   }
@@ -135,14 +154,23 @@ narrowKlass oopDesc::narrow_klass_acquire() const {
 void oopDesc::set_klass(Klass* k) {
   assert(Universe::is_bootstrapping() || (k != nullptr && k->is_klass()), "incorrect Klass");
   assert(!UseCompactObjectHeaders, "don't set Klass* with compact headers");
-  _compressed_klass = CompressedKlassPointers::encode_not_null(k);
+  if (UseCompressedClassPointers) {
+    _metadata._compressed_klass = CompressedKlassPointers::encode_not_null(k);
+  } else {
+    _metadata._klass = k;
+  }
 }
 
 void oopDesc::release_set_klass(HeapWord* mem, Klass* k) {
   assert(Universe::is_bootstrapping() || (k != nullptr && k->is_klass()), "incorrect Klass");
   assert(!UseCompactObjectHeaders, "don't set Klass* with compact headers");
   char* raw_mem = ((char*)mem + klass_offset_in_bytes());
-  AtomicAccess::release_store((narrowKlass*)raw_mem, CompressedKlassPointers::encode_not_null(k));
+  if (UseCompressedClassPointers) {
+    AtomicAccess::release_store((narrowKlass*)raw_mem,
+                          CompressedKlassPointers::encode_not_null(k));
+  } else {
+    AtomicAccess::release_store((Klass**)raw_mem, k);
+  }
 }
 
 void oopDesc::set_klass_gap(HeapWord* mem, int v) {

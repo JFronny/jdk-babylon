@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,7 +25,7 @@
  * @test
  * @bug 8246774
  * @summary Basic test that serializes and deserializes a number of records
- * @run junit BasicRecordSer
+ * @run testng BasicRecordSer
  */
 
 import java.io.ByteArrayInputStream;
@@ -39,24 +39,19 @@ import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.math.BigInteger;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
 import static java.lang.String.format;
 import static java.lang.System.out;
 import static java.net.InetAddress.getLoopbackAddress;
-
-import org.junit.jupiter.api.Assertions;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
+import static org.testng.Assert.fail;
 
 /**
  * Basic test that serializes and deserializes a number of simple records.
  */
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class BasicRecordSer {
 
     // a mix of a few record and non-record classes
@@ -106,6 +101,7 @@ public class BasicRecordSer {
 
     record Wubble (Wobble wobble, Wibble wibble, String s) implements ThrowingExternalizable { }
 
+    @DataProvider(name = "serializable")
     public Object[][] serializable() {
         Foo foo = new Foo(23);
         return new Object[][] {
@@ -125,20 +121,14 @@ public class BasicRecordSer {
     }
 
     /** Tests serializing and deserializing a number of records. */
-    @ParameterizedTest
-    @MethodSource("serializable")
+    @Test(dataProvider = "serializable")
     public void testSerializable(Object objToSerialize) throws Exception {
         out.println("\n---");
         out.println("serializing : " + objToSerialize);
         var objDeserialized = serializeDeserialize(objToSerialize);
         out.println("deserialized: " + objDeserialized);
-        if (objToSerialize.getClass().isArray()) {
-            assertArrayEquals((Object[]) objDeserialized, (Object[]) objToSerialize);
-            assertArrayEquals((Object[]) objToSerialize, (Object[]) objDeserialized);
-        } else {
-            assertEquals(objDeserialized, objToSerialize);
-            assertEquals(objToSerialize, objDeserialized);
-        }
+        assertEquals(objToSerialize, objDeserialized);
+        assertEquals(objDeserialized, objToSerialize);
     }
 
     /** Tests serializing and deserializing of local records. */
@@ -164,8 +154,8 @@ public class BasicRecordSer {
         out.println("serializing : " + objToSerialize);
         Foo[] objDeserialized = (Foo[])serializeDeserialize(objToSerialize);
         out.println("deserialized: " + objDeserialized);
-        Assertions.assertArrayEquals(objDeserialized, objToSerialize);
-        Assertions.assertArrayEquals(objToSerialize, objDeserialized);
+        assertEquals(objToSerialize, objDeserialized);
+        assertEquals(objDeserialized, objToSerialize);
 
         for (Foo f : objDeserialized)
             assertTrue(objDeserialized[0] == f);
@@ -181,8 +171,8 @@ public class BasicRecordSer {
         out.println("serializing : " + objToSerialize);
         Wobble[] objDeserialized = (Wobble[])serializeDeserialize(objToSerialize);
         out.println("deserialized: " + objDeserialized);
-        Assertions.assertArrayEquals(objDeserialized, objToSerialize);
-        Assertions.assertArrayEquals(objToSerialize, objDeserialized);
+        assertEquals(objToSerialize, objDeserialized);
+        assertEquals(objDeserialized, objToSerialize);
 
         for (Wobble w : objDeserialized) {
             assertTrue(objDeserialized[0] == w);
@@ -202,6 +192,7 @@ public class BasicRecordSer {
         final NotSer notSer = new NotSer(7);
     }
 
+    @DataProvider(name = "notSerializable")
     public Object[][] notSerializable() {
         return new Object[][] {
             new Object[] { new NotSerEmpty()                       },
@@ -218,12 +209,11 @@ public class BasicRecordSer {
     static final Class<NotSerializableException> NSE = NotSerializableException.class;
 
     /** Tests that non-Serializable record objects throw NotSerializableException. */
-    @ParameterizedTest
-    @MethodSource("notSerializable")
+    @Test(dataProvider = "notSerializable")
     public void testNotSerializable(Object objToSerialize) throws Exception {
         out.println("\n---");
         out.println("serializing : " + objToSerialize);
-        NotSerializableException expected = Assertions.assertThrows(NSE, () -> serialize(objToSerialize));
+        NotSerializableException expected = expectThrows(NSE, () -> serialize(objToSerialize));
         out.println("caught expected NSE:" + expected);
 
     }
@@ -245,9 +235,9 @@ public class BasicRecordSer {
         out.println("serializing : " + objToSerialize);
         var objDeserialized = serializeDeserialize(objToSerialize);
         out.println("deserialized: " + objDeserialized);
-        assertEquals(objDeserialized, objToSerialize);
         assertEquals(objToSerialize, objDeserialized);
-        assertEquals(1, e_ctrInvocationCount);
+        assertEquals(objDeserialized, objToSerialize);
+        assertEquals(e_ctrInvocationCount, 1);
     }
 
     // ---
@@ -268,9 +258,9 @@ public class BasicRecordSer {
         var objToSerialize = new G();
         g_ctrInvocationCount = 0;  // reset
         out.println("serializing : " + objToSerialize);
-        NotSerializableException expected = Assertions.assertThrows(NSE, () -> serialize(objToSerialize));
+        NotSerializableException expected = expectThrows(NSE, () -> serialize(objToSerialize));
         out.println("caught expected NSE:" + expected);
-        assertEquals(0, g_ctrInvocationCount);
+        assertEquals(g_ctrInvocationCount, 0);
     }
 
     // --- infra

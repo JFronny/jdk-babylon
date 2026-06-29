@@ -97,7 +97,7 @@ case "$OS" in
       FILESEP="\\"
       ;;
     
-    CYGWIN* | MSYS* | MINGW* )
+    CYGWIN* )
       VAR="A different value for CYGWIN"
       DEFAULT_JDK=/none
       FILESEP="/"

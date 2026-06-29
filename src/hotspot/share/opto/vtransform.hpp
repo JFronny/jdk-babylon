@@ -24,7 +24,6 @@
 #ifndef SHARE_OPTO_VTRANSFORM_HPP
 #define SHARE_OPTO_VTRANSFORM_HPP
 
-#include "libadt/vectset.hpp"
 #include "opto/node.hpp"
 #include "opto/vectorization.hpp"
 #include "opto/vectornode.hpp"
@@ -193,6 +192,7 @@ public:
   const GrowableArray<VTransformNode*>& vtnodes() const { return _vtnodes; }
   const GrowableArray<VTransformNode*>& get_schedule() const { return _schedule; }
 
+  void optimize(VTransform& vtransform);
   bool schedule();
   bool has_store_to_load_forwarding_failure(const VLoopAnalyzer& vloop_analyzer) const;
   float cost_for_vector_loop() const;
@@ -257,7 +257,7 @@ public:
   DEBUG_ONLY( bool has_graph() const { return !_graph.is_empty(); } )
   VTransformGraph& graph() { return _graph; }
 
-  void optimize();
+  void optimize() { return _graph.optimize(*this); }
   bool schedule() { return _graph.schedule(); }
   bool is_profitable() const;
   float cost_for_vector_loop() const { return _graph.cost_for_vector_loop(); }
@@ -289,36 +289,6 @@ private:
   void add_speculative_check(Callback callback);
 
   void apply_vectorization() const;
-};
-
-// We keep track of the worklist during optimizations.
-// The concept is somewhat parallel to IGVN: we keep on
-// optimizing vtnodes on the worklist, which may in turn
-// add more nodes to the list. We keep on optimizing until
-// no more nodes are on the worklist.
-class VTransformOptimize : public StackObj {
-private:
-  const VLoopAnalyzer& _vloop_analyzer;
-  VTransform& _vtransform;
-
-  GrowableArray<VTransformNode*> _worklist;
-  VectorSet _worklist_set;
-
-public:
-  VTransformOptimize(const VLoopAnalyzer& vloop_analyzer, VTransform& vtransform) :
-    _vloop_analyzer(vloop_analyzer),
-    _vtransform(vtransform) {}
-
-  const VLoopAnalyzer& vloop_analyzer() const { return _vloop_analyzer; }
-  VTransform& vtransform() { return _vtransform; }
-
-  void worklist_push(VTransformNode* vtn);
-  void optimize();
-
-private:
-  VTransformNode* worklist_pop();
-  bool optimize_step(VTransformNode* vtn);
-  DEBUG_ONLY( void verify(); )
 };
 
 // Keeps track of the state during "VTransform::apply"
@@ -561,15 +531,10 @@ public:
 
   bool is_alive() const { return _is_alive; }
 
-  void mark_dead(VTransformOptimize& vtoptimize) {
+  void mark_dead() {
     _is_alive = false;
-    // Remove all inputs, and put inputs on worklist in
-    // case they are also dead.
+    // Remove all inputs
     for (uint i = 0; i < req(); i++) {
-      VTransformNode* in = in_req(i);
-      if (in != nullptr) {
-        vtoptimize.worklist_push(in);
-      }
       set_req(i, nullptr);
     }
   }
@@ -593,7 +558,7 @@ public:
   virtual const VPointer& vpointer() const { ShouldNotReachHere(); }
   virtual bool is_loop_head_phi() const { return false; }
 
-  virtual bool optimize(VTransformOptimize& vtoptimize) { return false; }
+  virtual bool optimize(const VLoopAnalyzer& vloop_analyzer, VTransform& vtransform) { return false; }
 
   virtual float cost(const VLoopAnalyzer& vloop_analyzer) const = 0;
 
@@ -903,7 +868,7 @@ public:
   VTransformReductionVectorNode(VTransform& vtransform, const VTransformVectorNodeProperties properties) :
     VTransformVectorNode(vtransform, 3, properties) {}
   virtual VTransformReductionVectorNode* isa_ReductionVector() override { return this; }
-  virtual bool optimize(VTransformOptimize& vtoptimize) override;
+  virtual bool optimize(const VLoopAnalyzer& vloop_analyzer, VTransform& vtransform) override;
   virtual float cost(const VLoopAnalyzer& vloop_analyzer) const override;
   virtual VTransformApplyResult apply(VTransformApplyState& apply_state) const override;
   NOT_PRODUCT(virtual const char* name() const override { return "ReductionVector"; };)
@@ -911,8 +876,8 @@ public:
 private:
   int vector_reduction_opcode() const;
   bool requires_strict_order() const;
-  bool optimize_move_non_strict_order_reductions_out_of_loop_preconditions(const VTransform& vtransform);
-  bool optimize_move_non_strict_order_reductions_out_of_loop(VTransformOptimize& vtoptimize);
+  bool optimize_move_non_strict_order_reductions_out_of_loop_preconditions(VTransform& vtransform);
+  bool optimize_move_non_strict_order_reductions_out_of_loop(const VLoopAnalyzer& vloop_analyzer, VTransform& vtransform);
 };
 
 class VTransformPhiVectorNode : public VTransformVectorNode {
@@ -975,5 +940,4 @@ public:
   virtual VTransformApplyResult apply(VTransformApplyState& apply_state) const override;
   NOT_PRODUCT(virtual const char* name() const override { return "StoreVector"; };)
 };
-
 #endif // SHARE_OPTO_VTRANSFORM_HPP

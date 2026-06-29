@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1999, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -85,11 +85,14 @@ void C1_MacroAssembler::initialize_header(Register obj, Register klass, Register
   if (UseCompactObjectHeaders) {
     movptr(t1, Address(klass, Klass::prototype_header_offset()));
     movptr(Address(obj, oopDesc::mark_offset_in_bytes()), t1);
-  } else { // Take care not to kill klass
+  } else if (UseCompressedClassPointers) { // Take care not to kill klass
     movptr(Address(obj, oopDesc::mark_offset_in_bytes()), checked_cast<int32_t>(markWord::prototype().value()));
     movptr(t1, klass);
     encode_klass_not_null(t1, rscratch1);
     movl(Address(obj, oopDesc::klass_offset_in_bytes()), t1);
+  } else {
+    movptr(Address(obj, oopDesc::mark_offset_in_bytes()), checked_cast<int32_t>(markWord::prototype().value()));
+    movptr(Address(obj, oopDesc::klass_offset_in_bytes()), klass);
   }
 
   if (len->is_valid()) {
@@ -101,7 +104,7 @@ void C1_MacroAssembler::initialize_header(Register obj, Register klass, Register
       xorl(t1, t1);
       movl(Address(obj, base_offset), t1);
     }
-  } else if (!UseCompactObjectHeaders) {
+  } else if (UseCompressedClassPointers && !UseCompactObjectHeaders) {
     xorptr(t1, t1);
     store_klass_gap(obj, t1);
   }

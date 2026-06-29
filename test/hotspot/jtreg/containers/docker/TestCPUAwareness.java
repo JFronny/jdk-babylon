@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2017, 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -48,8 +48,9 @@ public class TestCPUAwareness {
     private static final int availableCPUs = Runtime.getRuntime().availableProcessors();
 
     public static void main(String[] args) throws Exception {
-        DockerTestUtils.checkCanTestDocker();
-        DockerTestUtils.checkCanUseResourceLimits();
+        if (!DockerTestUtils.canTestDocker()) {
+            return;
+        }
 
         System.out.println("Test Environment: detected availableCPUs = " + availableCPUs);
         DockerTestUtils.buildJdkContainerImage(imageName);
@@ -85,7 +86,9 @@ public class TestCPUAwareness {
             }
 
         } finally {
-            DockerTestUtils.removeDockerImage(imageName);
+            if (!DockerTestUtils.RETAIN_IMAGE_AFTER_TEST) {
+                DockerTestUtils.removeDockerImage(imageName);
+            }
         }
     }
 
@@ -143,9 +146,9 @@ public class TestCPUAwareness {
 
 
     // Expected active processor count can not exceed available CPU count
-    private static double adjustExpectedAPCForAvailableCPUs(double expectedAPC) {
-        if (expectedAPC > (double)availableCPUs) {
-            expectedAPC = (double)availableCPUs;
+    private static int adjustExpectedAPCForAvailableCPUs(int expectedAPC) {
+        if (expectedAPC > availableCPUs) {
+            expectedAPC = availableCPUs;
             System.out.println("Adjusted expectedAPC = " + expectedAPC);
         }
         return expectedAPC;
@@ -158,7 +161,7 @@ public class TestCPUAwareness {
         System.out.println("quota = " + quota);
         System.out.println("period = " + period);
 
-        double expectedAPC = (double) quota / (double) period;
+        int expectedAPC = (int) Math.ceil((float) quota / (float) period);
         System.out.println("expectedAPC = " + expectedAPC);
         expectedAPC = adjustExpectedAPCForAvailableCPUs(expectedAPC);
 
@@ -178,7 +181,7 @@ public class TestCPUAwareness {
 
 
     private static void testAPCCombo(String cpuset, int quota, int period, int shares,
-                                     double expectedAPC) throws Exception {
+                                     int expectedAPC) throws Exception {
         Common.logNewTestCase("test APC Combo");
         System.out.println("cpuset = " + cpuset);
         System.out.println("quota = " + quota);

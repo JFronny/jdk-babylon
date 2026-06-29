@@ -154,7 +154,6 @@ class JFIFMarkerSegment extends MarkerSegment {
     /**
      * Returns a deep-copy clone of this object.
      */
-    @Override
     protected Object clone() {
         JFIFMarkerSegment newGuy = (JFIFMarkerSegment) super.clone();
         if (!extSegments.isEmpty()) { // Clone the list with a deep copy
@@ -217,7 +216,6 @@ class JFIFMarkerSegment extends MarkerSegment {
      * Returns a tree of DOM nodes representing this object and any
      * subordinate JFXX extension or ICC Profile segments.
      */
-    @Override
     IIOMetadataNode getNativeNode() {
         IIOMetadataNode node = new IIOMetadataNode("app0JFIF");
         node.setAttribute("majorVersion", Integer.toString(majorVersion));
@@ -624,7 +622,6 @@ class JFIFMarkerSegment extends MarkerSegment {
     /**
      * Prints out the contents of this object to System.out for debugging.
      */
-    @Override
     void print() {
         printTag("JFIF");
         System.out.print("Version ");
@@ -770,7 +767,6 @@ class JFIFMarkerSegment extends MarkerSegment {
             }
         }
 
-        @Override
         protected Object clone() {
             JFIFExtensionMarkerSegment newGuy =
                 (JFIFExtensionMarkerSegment) super.clone();
@@ -780,7 +776,6 @@ class JFIFMarkerSegment extends MarkerSegment {
             return newGuy;
         }
 
-        @Override
         IIOMetadataNode getNativeNode() {
             IIOMetadataNode node = new IIOMetadataNode("app0JFXX");
             node.setAttribute("extensionCode", Integer.toString(code));
@@ -798,7 +793,6 @@ class JFIFMarkerSegment extends MarkerSegment {
             thumb.write(ios, writer);
         }
 
-        @Override
         void print() {
             printTag("JFXX");
             thumb.print();
@@ -832,7 +826,6 @@ class JFIFMarkerSegment extends MarkerSegment {
         abstract void write(ImageOutputStream ios,
                             JPEGImageWriter writer) throws IOException;
 
-        @Override
         protected Object clone() {
             try {
                 return super.clone();
@@ -914,17 +907,14 @@ class JFIFMarkerSegment extends MarkerSegment {
         }
 
 
-        @Override
         int getWidth() {
             return thumbWidth;
         }
 
-        @Override
         int getHeight() {
             return thumbHeight;
         }
 
-        @Override
         IIOMetadataNode getNativeNode() {
             IIOMetadataNode node = new IIOMetadataNode(name);
             node.setAttribute("thumbWidth", Integer.toString(thumbWidth));
@@ -932,7 +922,6 @@ class JFIFMarkerSegment extends MarkerSegment {
             return node;
         }
 
-        @Override
         void write(ImageOutputStream ios,
                    JPEGImageWriter writer) throws IOException {
             if ((thumbWidth > MAX_THUMB_WIDTH)
@@ -960,7 +949,6 @@ class JFIFMarkerSegment extends MarkerSegment {
             writeThumbnailData(ios, data, writer);
         }
 
-        @Override
         void print() {
             System.out.print(name + " width: ");
             System.out.println(thumbWidth);
@@ -990,12 +978,10 @@ class JFIFMarkerSegment extends MarkerSegment {
             super(thumb);
         }
 
-        @Override
         int getLength() {
             return (thumbWidth*thumbHeight*3);
         }
 
-        @Override
         BufferedImage getThumbnail(ImageInputStream iis,
                                    JPEGImageReader reader)
             throws IOException {
@@ -1028,7 +1014,6 @@ class JFIFMarkerSegment extends MarkerSegment {
                                      null);
         }
 
-        @Override
         void write(ImageOutputStream ios,
                    JPEGImageWriter writer) throws IOException {
             super.write(ios, writer); // width and height
@@ -1065,12 +1050,10 @@ class JFIFMarkerSegment extends MarkerSegment {
             }
         }
 
-        @Override
         int getLength() {
             return (thumbWidth*thumbHeight + PALETTE_SIZE);
         }
 
-        @Override
         BufferedImage getThumbnail(ImageInputStream iis,
                                    JPEGImageReader reader)
             throws IOException {
@@ -1108,7 +1091,6 @@ class JFIFMarkerSegment extends MarkerSegment {
                                      null);
         }
 
-        @Override
         void write(ImageOutputStream ios,
                    JPEGImageWriter writer) throws IOException {
             super.write(ios, writer); // width and height
@@ -1239,7 +1221,6 @@ class JFIFMarkerSegment extends MarkerSegment {
             }
         }
 
-        @Override
         int getWidth() {
             int retval = 0;
             SOFMarkerSegment sof =
@@ -1251,7 +1232,6 @@ class JFIFMarkerSegment extends MarkerSegment {
             return retval;
         }
 
-        @Override
         int getHeight() {
             int retval = 0;
             SOFMarkerSegment sof =
@@ -1269,31 +1249,21 @@ class JFIFMarkerSegment extends MarkerSegment {
             ThumbnailReadListener (JPEGImageReader reader) {
                 this.reader = reader;
             }
-            @Override
             public void sequenceStarted(ImageReader source, int minIndex) {}
-            @Override
             public void sequenceComplete(ImageReader source) {}
-            @Override
             public void imageStarted(ImageReader source, int imageIndex) {}
-            @Override
             public void imageProgress(ImageReader source,
                                       float percentageDone) {
                 reader.thumbnailProgress(percentageDone);
             }
-            @Override
             public void imageComplete(ImageReader source) {}
-            @Override
             public void thumbnailStarted(ImageReader source,
                 int imageIndex, int thumbnailIndex) {}
-            @Override
             public void thumbnailProgress(ImageReader source, float percentageDone) {}
-            @Override
             public void thumbnailComplete(ImageReader source) {}
-            @Override
             public void readAborted(ImageReader source) {}
         }
 
-        @Override
         BufferedImage getThumbnail(ImageInputStream iis,
                                    JPEGImageReader reader)
             throws IOException {
@@ -1309,7 +1279,6 @@ class JFIFMarkerSegment extends MarkerSegment {
             return ret;
         }
 
-        @Override
         protected Object clone() {
             JFIFThumbJPEG newGuy = (JFIFThumbJPEG) super.clone();
             if (thumbMetadata != null) {
@@ -1318,7 +1287,6 @@ class JFIFMarkerSegment extends MarkerSegment {
             return newGuy;
         }
 
-        @Override
         IIOMetadataNode getNativeNode() {
             IIOMetadataNode node = new IIOMetadataNode("JFIFthumbJPEG");
             if (thumbMetadata != null) {
@@ -1327,7 +1295,6 @@ class JFIFMarkerSegment extends MarkerSegment {
             return node;
         }
 
-        @Override
         int getLength() {
             if (data == null) {
                 return 0;
@@ -1336,7 +1303,6 @@ class JFIFMarkerSegment extends MarkerSegment {
             }
         }
 
-        @Override
         void write(ImageOutputStream ios,
                    JPEGImageWriter writer) throws IOException {
             int progInterval = data.length / 20;  // approx. every 5%
@@ -1356,7 +1322,6 @@ class JFIFMarkerSegment extends MarkerSegment {
             }
         }
 
-        @Override
         void print () {
             System.out.println("JFIF thumbnail stored as JPEG");
         }
@@ -1480,7 +1445,6 @@ class JFIFMarkerSegment extends MarkerSegment {
             }
         }
 
-        @Override
         protected Object clone () {
             ICCMarkerSegment newGuy = (ICCMarkerSegment) super.clone();
             if (profile != null) {
@@ -1577,7 +1541,6 @@ class JFIFMarkerSegment extends MarkerSegment {
             return retval;
         }
 
-        @Override
         IIOMetadataNode getNativeNode() {
             IIOMetadataNode node = new IIOMetadataNode("app2ICC");
             if (profile != null) {
@@ -1590,12 +1553,10 @@ class JFIFMarkerSegment extends MarkerSegment {
          * No-op.  Profiles are never written from metadata.
          * They are written from the ColorSpace of the image.
          */
-        @Override
         void write(ImageOutputStream ios) throws IOException {
             // No-op
         }
 
-        @Override
         void print () {
             printTag("ICC Profile APP2");
         }

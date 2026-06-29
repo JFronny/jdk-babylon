@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2015, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -43,7 +43,7 @@
  *        jdk.test.lib.compiler.CompilerUtils
  *        jdk.test.lib.process.ProcessTools
  *        ModuleTestUtil
- * @run junit/timeout=200 BasicTest
+ * @run testng BasicTest
  */
 
 import java.nio.file.Path;
@@ -54,15 +54,13 @@ import jdk.test.lib.JDKToolLauncher;
 import jdk.test.lib.Utils;
 import jdk.test.lib.compiler.CompilerUtils;
 import jdk.test.lib.process.ProcessTools;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
 
 import static jdk.test.lib.Asserts.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+import static org.testng.Assert.assertTrue;
 
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@Test
 public class BasicTest {
     private static final String SRC_DIR_APPBASIC = "srcAppbasic";
     private static final String SRC_DIR_APPBASIC2 = "srcAppbasic2";
@@ -94,6 +92,7 @@ public class BasicTest {
 
     private static final String MAIN = "test/jdk.test.Main";
 
+    @DataProvider(name = "basicTestData")
     Object[][] basicTestData() {
         return new Object[][] {
                 // Named module "test" contains resource bundles for root and en,
@@ -123,8 +122,7 @@ public class BasicTest {
         };
     }
 
-    @ParameterizedTest
-    @MethodSource("basicTestData")
+    @Test(dataProvider = "basicTestData")
     public void runBasicTest(String src, String mod, List<String> moduleList,
             List<String> localeList, String resFormat) throws Throwable {
         Path srcPath = Paths.get(Utils.TEST_SRC, src);
@@ -132,6 +130,7 @@ public class BasicTest {
         moduleList.forEach(mn -> ModuleTestUtil.prepareModule(srcPath, modPath,
                 mn, resFormat));
         ModuleTestUtil.runModule(modPath.toString(), MAIN, localeList);
+        ModuleTestUtil.runModuleWithLegacyCode(modPath.toString(), MAIN, localeList);
     }
 
     @Test

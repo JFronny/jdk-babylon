@@ -46,10 +46,14 @@ import jtreg.SkippedException;
 
 
 public class TestMisc {
+    private static final Metrics metrics = Metrics.systemMetrics();
     private static final String imageName = Common.imageName("misc");
 
     public static void main(String[] args) throws Exception {
-        DockerTestUtils.checkCanTestDocker();
+        if (!DockerTestUtils.canTestDocker()) {
+            return;
+        }
+
         Common.prepareWhiteBox();
         DockerTestUtils.buildJdkContainerImage(imageName);
 
@@ -98,8 +102,14 @@ public class TestMisc {
     // Test the mapping function on cgroups v2. Should also pass on cgroups v1 as it's
     // a direct mapping there.
     private static void testPrintContainerInfoCPUShares() throws Exception {
-        // Test won't work on cgv1 rootless since resource limits don't work there.
-        DockerTestUtils.checkCanUseResourceLimits();
+        // Test won't work on cgv1 rootless podman since resource limits don't
+        // work there.
+        if ("cgroupv1".equals(metrics.getProvider()) &&
+            DockerTestUtils.isPodman() &&
+            DockerTestUtils.isRootless()) {
+            throw new SkippedException("Resource limits required for testPrintContainerInfoCPUShares(). " +
+                                       "This is cgv1 with podman in rootless mode. Test skipped.");
+        }
         // Anything less than 1024 should return the back-mapped cpu-shares value without
         // rounding to next multiple of 1024 (on cg v2). Only ensure that we get
         // 'cpu_shares: <back-mapped-value>' over 'cpu_shares: no shares'.
@@ -127,10 +137,10 @@ public class TestMisc {
         // mapping function.
         if (numberMatch) {
           int valueExpected = isCgroupV2 ? expected : cpuShares;
-          DockerTestUtils.shouldMatchWithValue(out, "cpu_shares", String.valueOf(valueExpected));
+          out.shouldContain("cpu_shares: " + valueExpected);
         } else {
           // must not print "no shares"
-          DockerTestUtils.shouldNotMatchWithValue(out, "cpu_shares", "no shares");
+          out.shouldNotContain("cpu_shares: no shares");
         }
     }
 
@@ -141,7 +151,7 @@ public class TestMisc {
         Common.addWhiteBoxOpts(opts);
 
         OutputAnalyzer out = Common.run(opts);
-        DockerTestUtils.shouldMatchWithValue(out, "active_processor_count", "2 (from -XX:ActiveProcessorCount)");
+        out.shouldContain("but overridden by -XX:ActiveProcessorCount 2");
     }
 
     private static void checkContainerInfo(OutputAnalyzer out) throws Exception {
@@ -158,11 +168,11 @@ public class TestMisc {
             "Memory Throttle Limit",
             "Memory Usage",
             "Maximum Memory Usage",
-            "memory_max_usage",
+            "memory_max_usage_in_bytes",
             "maximum number of tasks",
             "current number of tasks",
-            "rss_usage",
-            "cache_usage"
+            "rss_usage_in_bytes",
+            "cache_usage_in_bytes"
         };
 
         for (String s : expectedToContain) {
@@ -170,13 +180,13 @@ public class TestMisc {
         }
         String str = out.getOutput();
         if (str.contains("cgroupv1")) {
-            out.shouldContain("kernel_memory_usage");
-            out.shouldContain("kernel_memory_max_usage");
-            out.shouldContain("kernel_memory_limit");
+            out.shouldContain("kernel_memory_usage_in_bytes");
+            out.shouldContain("kernel_memory_max_usage_in_bytes");
+            out.shouldContain("kernel_memory_limit_in_bytes");
         } else {
             if (str.contains("cgroupv2")) {
-                out.shouldContain("memory_swap_current");
-                out.shouldContain("memory_swap_max_limit");
+                out.shouldContain("memory_swap_current_in_bytes");
+                out.shouldContain("memory_swap_max_limit_in_bytes");
             } else {
                 throw new RuntimeException("Output has to contain information about cgroupv1 or cgroupv2");
             }

@@ -44,8 +44,12 @@ public class ClassComparison {
     Class[] c2;
     int[] res;
     long[] resLong;
-    float[] resFloat;
-    double[] resDouble;
+    Object[] resObject;
+    Object ro1;
+    Object ro2;
+    Object[] resClass;
+    Class rc1;
+    Class rc2;
 
     @Setup
     public void setup() {
@@ -54,8 +58,12 @@ public class ClassComparison {
         c2 = new Class[INVOCATIONS];
         res = new int[INVOCATIONS];
         resLong = new long[INVOCATIONS];
-        resFloat = new float[INVOCATIONS];
-        resDouble = new double[INVOCATIONS];
+        resObject = new Object[INVOCATIONS];
+        ro1 = new Object();
+        ro2 = new Object();
+        resClass = new Class[INVOCATIONS];
+        rc1 = Float.class;
+        rc2 = Double.class;
         for (int i = 0; i < INVOCATIONS; i++) {
             c1[i] = random.nextBoolean() ? Float.class : Double.class;
         }
@@ -78,7 +86,6 @@ public class ClassComparison {
         }
     }
 
-    @Benchmark
     public void equalClassResLong() {
         for (int i = 0; i < INVOCATIONS; i++) {
             resLong[i] = (c1[i] == c2[i]) ? Long.MAX_VALUE : Long.MIN_VALUE;
@@ -89,34 +96,6 @@ public class ClassComparison {
     public void notEqualClassResLong() {
         for (int i = 0; i < INVOCATIONS; i++) {
             resLong[i] = (c1[i] != c2[i]) ? Long.MAX_VALUE : Long.MIN_VALUE;
-        }
-    }
-
-    @Benchmark
-    public void equalClassResFloat() {
-        for (int i = 0; i < INVOCATIONS; i++) {
-            resFloat[i] = (c1[i] == c2[i]) ? 0.1f : 0.2f;
-        }
-    }
-
-    @Benchmark
-    public void notEqualClassResFloat() {
-        for (int i = 0; i < INVOCATIONS; i++) {
-            resFloat[i] = (c1[i] != c2[i]) ? 0.1f : 0.2f;
-        }
-    }
-
-    @Benchmark
-    public void equalClassResDouble() {
-        for (int i = 0; i < INVOCATIONS; i++) {
-            resDouble[i] = (c1[i] == c2[i]) ? 0.1 : 0.2;
-        }
-    }
-
-    @Benchmark
-    public void notEqualClassResDouble() {
-        for (int i = 0; i < INVOCATIONS; i++) {
-            resDouble[i] = (c1[i] != c2[i]) ? 0.1 : 0.2;
         }
     }
 }

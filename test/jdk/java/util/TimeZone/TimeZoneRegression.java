@@ -34,7 +34,6 @@ import java.util.*;
 import java.io.*;
 import java.text.*;
 
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.fail;
@@ -165,8 +164,10 @@ public class TimeZoneRegression {
     @Test
     public void Test4109314() {
         Locale locale = Locale.getDefault();
-        Assumptions.assumeTrue(TestUtils.usesGregorianCalendar(locale),
-                locale + " does not use a Gregorian calendar");
+        if (!TestUtils.usesGregorianCalendar(locale)) {
+            System.out.println("Skipping this test because locale is " + locale);
+            return;
+        }
 
         // test both SimpleTimeZone and ZoneInfo objects.
         // @since 1.4
@@ -291,8 +292,10 @@ public class TimeZoneRegression {
     @Test
     public void Test4126678() {
         Locale locale = Locale.getDefault();
-        Assumptions.assumeTrue(TestUtils.usesGregorianCalendar(locale),
-                locale + " does not use a Gregorian calendar");
+        if (!TestUtils.usesGregorianCalendar(locale)) {
+            System.out.println("Skipping this test because locale is " + locale);
+            return;
+        }
 
         // Note: this test depends on the PST time zone.
         TimeZone initialZone = TimeZone.getDefault();

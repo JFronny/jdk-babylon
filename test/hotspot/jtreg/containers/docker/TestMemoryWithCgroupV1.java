@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2022, Tencent. All rights reserved.
- * Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -52,8 +51,10 @@ public class TestMemoryWithCgroupV1 {
             return;
         }
         if ("cgroupv1".equals(metrics.getProvider())) {
-            DockerTestUtils.checkCanTestDocker();
-            DockerTestUtils.checkCanUseResourceLimits();
+            if (!DockerTestUtils.canTestDocker()) {
+                return;
+            }
+
             Common.prepareWhiteBox();
             DockerTestUtils.buildJdkContainerImage(imageName);
 

@@ -55,7 +55,6 @@ import java.util.function.Predicate;
 
 import static java.util.Calendar.*;
 
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.fail;
@@ -576,8 +575,10 @@ public class CalendarRegression {
     @Test
     public void Test4100311() {
         Locale locale = Locale.getDefault();
-        Assumptions.assumeTrue(TestUtils.usesGregorianCalendar(locale),
-                locale + " does not use a Gregorian calendar");
+        if (!TestUtils.usesGregorianCalendar(locale)) {
+            System.out.println("Skipping this test because locale is " + locale);
+            return;
+        }
 
         GregorianCalendar cal = (GregorianCalendar) Calendar.getInstance();
         cal.set(YEAR, 1997);
@@ -592,8 +593,10 @@ public class CalendarRegression {
     @Test
     public void Test4103271() {
         Locale locale = Locale.getDefault();
-        Assumptions.assumeTrue(TestUtils.usesGregorianCalendar(locale),
-                locale + " does not use a Gregorian calendar");
+        if (!TestUtils.usesGregorianCalendar(locale)) {
+            System.out.println("Skipping this test because locale is " + locale);
+            return;
+        }
 
         SimpleDateFormat sdf = new SimpleDateFormat();
         int numYears = 40, startYear = 1997, numDays = 15;
@@ -830,8 +833,10 @@ public class CalendarRegression {
     @Test
     public void Test4114578() {
         Locale locale = Locale.getDefault();
-        Assumptions.assumeTrue(TestUtils.usesGregorianCalendar(locale),
-                locale + " does not use a Gregorian calendar");
+        if (!TestUtils.usesGregorianCalendar(locale)) {
+            System.out.println("Skipping this test because locale is " + locale);
+            return;
+        }
 
         int ONE_HOUR = 60 * 60 * 1000;
         TimeZone saveZone = TimeZone.getDefault();
@@ -916,8 +921,10 @@ public class CalendarRegression {
     @Test
     public void Test4125881() {
         Locale locale = Locale.getDefault();
-        Assumptions.assumeTrue(TestUtils.usesGregorianCalendar(locale),
-                locale + " does not use a Gregorian calendar");
+        if (!TestUtils.usesGregorianCalendar(locale)) {
+            System.out.println("Skipping this test because locale is " + locale);
+            return;
+        }
 
         GregorianCalendar cal = (GregorianCalendar) Calendar.getInstance();
         DateFormat fmt = new SimpleDateFormat("MMMM d, yyyy G");
@@ -940,8 +947,10 @@ public class CalendarRegression {
     @Test
     public void Test4125892() {
         Locale locale = Locale.getDefault();
-        Assumptions.assumeTrue(TestUtils.usesGregorianCalendar(locale),
-                locale + " does not use a Gregorian calendar");
+        if (!TestUtils.usesGregorianCalendar(locale)) {
+            System.out.println("Skipping this test because locale is " + locale);
+            return;
+        }
 
         GregorianCalendar cal = (GregorianCalendar) Calendar.getInstance();
         DateFormat fmt = new SimpleDateFormat("MMMM d, yyyy G");
@@ -1364,8 +1373,10 @@ public class CalendarRegression {
     @Test
     public void Test4173516() {
         Locale locale = Locale.getDefault();
-        Assumptions.assumeTrue(TestUtils.usesGregorianCalendar(locale),
-                locale + " does not use a Gregorian calendar");
+        if (!TestUtils.usesGregorianCalendar(locale)) {
+            System.out.println("Skipping this test because locale is " + locale);
+            return;
+        }
 
         int[][] fieldsList = {
             {1997, FEBRUARY, 1, 10, 45, 15, 900},
@@ -1841,10 +1852,11 @@ public class CalendarRegression {
     @Test
     public void Test4685354() {
         Locale locale = Locale.getDefault();
-        Assumptions.assumeTrue(TestUtils.usesAsciiDigits(locale),
-                locale + " does not use ASCII digits");
-        Assumptions.assumeTrue(TestUtils.usesGregorianCalendar(locale),
-                locale + " does not use a Gregorian calendar");
+        if (!TestUtils.usesAsciiDigits(locale)
+                || !TestUtils.usesGregorianCalendar(locale)) {
+            System.out.println("Skipping this test because locale is " + locale);
+            return;
+        }
 
         Calendar calendar = Calendar.getInstance(Locale.US);
         DateFormat df = new SimpleDateFormat("yyyy/MM/dd", Locale.US);
@@ -1949,8 +1961,10 @@ public class CalendarRegression {
     @Test
     public void Test4655637() {
         Locale locale = Locale.getDefault();
-        Assumptions.assumeTrue(TestUtils.usesGregorianCalendar(locale),
-                locale + " does not use a Gregorian calendar");
+        if (!TestUtils.usesGregorianCalendar(locale)) {
+            System.out.println("Skipping this test because locale is " + locale);
+            return;
+        }
 
         Calendar cal = Calendar.getInstance();
         cal.setTime(new Date(1029814211523L));

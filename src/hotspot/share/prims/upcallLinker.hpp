@@ -44,7 +44,7 @@ public:
                                   bool needs_return_buffer, int ret_buf_size);
 
   // public for stubGenerator
-  static void handle_uncaught_exception(oopDesc* exception);
+  static void handle_uncaught_exception(oop exception);
 };
 
 #endif // SHARE_VM_PRIMS_UPCALLLINKER_HPP

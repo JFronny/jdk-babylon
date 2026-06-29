@@ -24,6 +24,7 @@
  */
 package hat.codebuilders;
 
+import hat.dialect.HATVectorOp;
 import optkl.codebuilders.C99CodeBuilder;
 import optkl.codebuilders.ScopedCodeBuilderContext;
 
@@ -33,4 +34,23 @@ public abstract class C99HATCodeBuilder<T extends C99HATCodeBuilder<T>> extends 
         super(scopedCodeBuilderContext);
     }
 
+    public final T varName(HATVectorOp.HATVectorLoadOp vectorLoadOp) {
+        id(vectorLoadOp.varName());
+        return self();
+    }
+
+    public final T varName(HATVectorOp.HATVectorStoreView hatVectorStoreView) {
+        id(hatVectorStoreView.varName());
+        return self();
+    }
+
+    public final T varName(HATVectorOp.HATVectorBinaryOp hatVectorBinaryOp) {
+        id(hatVectorBinaryOp.varName());
+        return self();
+    }
+
+    public final T varName(HATVectorOp.HATVectorVarLoadOp hatVectorVarLoadOp) {
+        id(hatVectorVarLoadOp.varName());
+        return self();
+    }
 }

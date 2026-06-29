@@ -69,7 +69,7 @@ Klass* CollectedHeap::_filler_object_klass = nullptr;
 size_t CollectedHeap::_filler_array_max_size = 0;
 size_t CollectedHeap::_stack_chunk_max_size = 0;
 
-class GCLogMessage : public FormatBuffer<1024> {};
+class GCLogMessage : public FormatBuffer<512> {};
 
 template <>
 void EventLogBase<GCLogMessage>::print(outputStream* st, GCLogMessage& m) {
@@ -598,6 +598,7 @@ void CollectedHeap::initialize_reserved_region(const ReservedHeapSpace& rs) {
 
 void CollectedHeap::post_initialize() {
   StringDedup::initialize();
+  initialize_serviceability();
 }
 
 bool CollectedHeap::is_shutting_down() {

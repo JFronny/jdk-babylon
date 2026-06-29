@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -118,7 +118,8 @@ public class ASTAttributesFilledForReferencesOnMissingTypes {
                }
                """,
                "Test.java:1:9: compiler.err.cant.access: p.A, (compiler.misc.bad.class.file.header: A.class, (compiler.misc.illegal.start.of.class.file))",
-               "1 error");
+               "Test.java:3:5: compiler.err.cant.resolve.location: kindname.class, A, , , (compiler.misc.location: kindname.class, Test, null)",
+               "2 errors");
         doTest("""
                public class Test {
                    p.A a;
@@ -133,7 +134,8 @@ public class ASTAttributesFilledForReferencesOnMissingTypes {
                }
                """,
                "Test.java:1:9: compiler.err.cant.resolve.location: kindname.class, C, , , (compiler.misc.location: kindname.package, p, null)",
-               "1 error");
+               "Test.java:3:5: compiler.err.cant.resolve.location: kindname.class, C, , , (compiler.misc.location: kindname.class, Test, null)",
+               "2 errors");
         doTest("""
                public class Test {
                    p.C c;
@@ -150,7 +152,8 @@ public class ASTAttributesFilledForReferencesOnMissingTypes {
                }
                """,
                "Test.java:1:11: compiler.err.cant.access: p.B.I, (compiler.misc.bad.class.file.header: B$I.class, (compiler.misc.illegal.start.of.class.file))",
-               "1 error");
+               "Test.java:3:5: compiler.err.cant.resolve.location: kindname.class, I, , , (compiler.misc.location: kindname.class, Test, null)",
+               "2 errors");
         doTest("""
                import p.B.M;
                public class Test {
@@ -158,7 +161,8 @@ public class ASTAttributesFilledForReferencesOnMissingTypes {
                }
                """,
                "Test.java:1:11: compiler.err.cant.access: p.B.M, (compiler.misc.class.file.not.found: p.B$M)",
-               "1 error");
+               "Test.java:3:5: compiler.err.cant.resolve.location: kindname.class, M, , , (compiler.misc.location: kindname.class, Test, null)",
+               "2 errors");
         doTest("""
                public class Test {
                    p.B.I i;

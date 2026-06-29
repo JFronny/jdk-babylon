@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2015, 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,11 +27,9 @@ package jdk.tools.jlink.internal;
 import static jdk.tools.jlink.internal.TaskHelper.JLINK_BUNDLE;
 
 import java.io.BufferedInputStream;
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.UncheckedIOException;
 import java.lang.module.Configuration;
@@ -58,7 +56,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -241,27 +238,6 @@ public class JlinkTask {
     }
 
     public static final String OPTIONS_RESOURCE = "jdk/tools/jlink/internal/options";
-    // Release information stored in the java.base module
-    private static final String JDK_RELEASE_RESOURCE = "jdk/internal/misc/resources/release.txt";
-
-    /**
-     * Read the release.txt from the module.
-     */
-    private static Optional<String> getReleaseInfo(ModuleReference mref) {
-        try (var moduleReader = mref.open()) {
-            Optional<InputStream> release = moduleReader.open(JDK_RELEASE_RESOURCE);
-
-            if (release.isEmpty()) {
-                return Optional.empty();
-            }
-
-            try (var r = new BufferedReader(new InputStreamReader(release.get()))) {
-                return Optional.of(r.readLine());
-            }
-        } catch (IOException ioe) {
-            throw new UncheckedIOException(ioe);
-        }
-    }
 
     int run(String[] args) {
         if (log == null) {
@@ -373,22 +349,21 @@ public class JlinkTask {
         plugins = plugins == null ? new PluginsConfiguration() : plugins;
 
         // First create the image provider
-        try (ImageHelper imageProvider =
-                     createImageProvider(config,
-                             null,
-                             IGNORE_SIGNING_DEFAULT,
-                             false,
-                             null,
-                             false,
-                             new OptionsValues(),
-                             null)) {
+        ImageProvider imageProvider =
+                createImageProvider(config,
+                                    null,
+                                    IGNORE_SIGNING_DEFAULT,
+                                    false,
+                                    null,
+                                    false,
+                                    new OptionsValues(),
+                                    null);
 
-            // Then create the Plugin Stack
-            ImagePluginStack stack = ImagePluginConfiguration.parseConfiguration(plugins);
+        // Then create the Plugin Stack
+        ImagePluginStack stack = ImagePluginConfiguration.parseConfiguration(plugins);
 
-            // Ask the stack to proceed;
-            stack.operate(imageProvider);
-        }
+        //Ask the stack to proceed;
+        stack.operate(imageProvider);
     }
 
     // the token for "all modules on the module path"
@@ -435,8 +410,7 @@ public class JlinkTask {
 
         // Sanity check version if we use JMODs
         if (!isLinkFromRuntime) {
-            assert(finder.find("java.base").isPresent());
-            checkJavaBaseVersion(finder.find("java.base").get());
+            checkJavaBaseVersion(finder);
         }
 
         // Determine the roots set
@@ -512,24 +486,22 @@ public class JlinkTask {
         }
 
         // First create the image provider
-        try (ImageHelper imageProvider = createImageProvider(config,
-                options.packagedModulesPath,
-                options.ignoreSigning,
-                options.bindServices,
-                options.endian,
-                options.verbose,
-                options,
-                log)) {
-            // Then create the Plugin Stack
-            ImagePluginStack stack = ImagePluginConfiguration.parseConfiguration(
-                    taskHelper.getPluginsConfig(
-                            options.output,
-                            options.launchers,
-                            imageProvider.targetPlatform));
+        ImageHelper imageProvider = createImageProvider(config,
+                                                        options.packagedModulesPath,
+                                                        options.ignoreSigning,
+                                                        options.bindServices,
+                                                        options.endian,
+                                                        options.verbose,
+                                                        options,
+                                                        log);
 
-            //Ask the stack to proceed
-            stack.operate(imageProvider);
-        }
+        // Then create the Plugin Stack
+        ImagePluginStack stack = ImagePluginConfiguration.parseConfiguration(
+            taskHelper.getPluginsConfig(options.output, options.launchers,
+                    imageProvider.targetPlatform));
+
+        //Ask the stack to proceed
+        stack.operate(imageProvider);
     }
 
     /**
@@ -589,34 +561,32 @@ public class JlinkTask {
         return finder;
     }
 
-    private static String getCurrentRuntimeVersion() {
-        ModuleReference current = ModuleLayer.boot()
-                .configuration()
-                .findModule("java.base")
-                .get()
-                .reference();
-        // This jlink runtime should always have the release.txt
-        return getReleaseInfo(current).get();
-    }
-
     /*
-     * Checks the release information of the java.base used for target image
-     * for compatibility with the java.base used by jlink.
+     * Checks the version of the module descriptor of java.base for compatibility
+     * with the current runtime version.
      *
-     * @throws IllegalArgumentException  If  the `java.base` module reference `target`
-     * is not compatible with this jlink.
+     * @throws IllegalArgumentException the descriptor of java.base has no
+     * version or the java.base version is not the same as the current runtime's
+     * version.
      */
-    private static void checkJavaBaseVersion(ModuleReference target) {
-        String currentRelease = getCurrentRuntimeVersion();
+    private static void checkJavaBaseVersion(ModuleFinder finder) {
+        assert finder.find("java.base").isPresent();
 
-        String targetRelease = getReleaseInfo(target).orElseThrow(() -> new IllegalArgumentException(
-                taskHelper.getMessage("err.jlink.version.missing", currentRelease)));
+        // use the version of java.base module, if present, as
+        // the release version for multi-release JAR files
+        ModuleDescriptor.Version v = finder.find("java.base").get()
+                .descriptor().version().orElseThrow(() ->
+                new IllegalArgumentException("No version in java.base descriptor")
+                        );
 
-        if (!currentRelease.equals(targetRelease)) {
-            // Current runtime image and the target runtime image are not compatible build
+        Runtime.Version version = Runtime.Version.parse(v.toString());
+        if (Runtime.version().feature() != version.feature() ||
+                Runtime.version().interim() != version.interim()) {
+            // jlink version and java.base version do not match.
+            // We do not (yet) support this mode.
             throw new IllegalArgumentException(taskHelper.getMessage("err.jlink.version.mismatch",
-                    currentRelease,
-                    targetRelease));
+                    Runtime.version().feature(), Runtime.version().interim(),
+                    version.feature(), version.interim()));
         }
     }
 
@@ -1057,11 +1027,10 @@ public class JlinkTask {
         return sb.toString();
     }
 
-    private record ImageHelper(Set<Archive> archives,
-                               Platform targetPlatform,
-                               Path packagedModulesPath,
-                               boolean generateRuntimeImage)
-            implements ImageProvider, AutoCloseable {
+    private static record ImageHelper(Set<Archive> archives,
+                                      Platform targetPlatform,
+                                      Path packagedModulesPath,
+                                      boolean generateRuntimeImage) implements ImageProvider {
         @Override
         public ExecutableImage retrieve(ImagePluginStack stack) throws IOException {
             ExecutableImage image = ImageFileCreator.create(archives,
@@ -1076,26 +1045,6 @@ public class JlinkTask {
                 }
             }
             return image;
-        }
-
-        @Override
-        public void close() throws IOException {
-            List<IOException> thrown = null;
-            for (Archive archive : archives) {
-                try {
-                    archive.close();
-                } catch (IOException ex) {
-                    if (thrown == null) {
-                        thrown = new ArrayList<>();
-                    }
-                    thrown.add(ex);
-                }
-            }
-            if (thrown != null) {
-                IOException ex = new IOException("Archives could not be closed", thrown.getFirst());
-                thrown.subList(1, thrown.size()).forEach(ex::addSuppressed);
-                throw ex;
-            }
         }
     }
 }

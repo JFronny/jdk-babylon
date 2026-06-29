@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2001, 2023, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -32,7 +32,6 @@
 import  java.util.*;
 import static java.util.Calendar.*;
 
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.fail;
@@ -45,8 +44,10 @@ public class bug4409072 {
     @Test
     public void Test4409072() {
         Locale locale = Locale.getDefault();
-        Assumptions.assumeTrue(TestUtils.usesGregorianCalendar(locale),
-                locale + " does not use a Gregorian calendar");
+        if (!TestUtils.usesGregorianCalendar(locale)) {
+            System.out.println("Skipping this test because locale is " + locale);
+            return;
+        }
 
         Locale savedLocale = Locale.getDefault();
         TimeZone savedTZ = TimeZone.getDefault();

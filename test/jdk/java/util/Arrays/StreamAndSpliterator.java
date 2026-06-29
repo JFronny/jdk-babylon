@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2014, 2017, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -21,20 +21,21 @@
  * questions.
  */
 
-/*
+/**
  * @test
  * @bug 8037857
  * @summary tests for stream and spliterator factory methods
- * @run junit StreamAndSpliterator
+ * @run testng StreamAndSpliterator
  */
 
+import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.Spliterators;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.function.Executable;
+import org.testng.Assert.ThrowingRunnable;
+
+import static org.testng.Assert.assertThrows;
 
 public class StreamAndSpliterator {
     @Test
@@ -126,11 +127,11 @@ public class StreamAndSpliterator {
         assertThrowsAIOOB(() -> Spliterators.spliterator(new String[]{}, 0, 1, 0));
     }
 
-    void assertThrowsNPE(Executable r) {
+    void assertThrowsNPE(ThrowingRunnable r) {
         assertThrows(NullPointerException.class, r);
     }
 
-    void assertThrowsAIOOB(Executable r) {
+    void assertThrowsAIOOB(ThrowingRunnable r) {
         assertThrows(ArrayIndexOutOfBoundsException.class, r);
     }
 }

@@ -26,6 +26,8 @@
 #define SHARE_VM_GC_SHENANDOAH_SHENANDOAHGLOBALGENERATION_HPP
 
 #include "gc/shenandoah/shenandoahGeneration.hpp"
+#include "gc/shenandoah/shenandoahOldGeneration.hpp"
+#include "gc/shenandoah/shenandoahYoungGeneration.hpp"
 
 // A "generation" that represents the whole heap.
 class ShenandoahGlobalGeneration : public ShenandoahGeneration {
@@ -44,6 +46,7 @@ public:
 public:
   const char* name() const override;
 
+  size_t bytes_allocated_since_gc_start() const override;
   size_t used() const override;
   size_t used_regions() const override;
   size_t used_regions_size() const override;
@@ -53,6 +56,7 @@ public:
   size_t max_capacity() const override;
 
   size_t available() const override;
+  size_t soft_available() const override;
 
   void set_concurrent_mark_in_progress(bool in_progress) override;
 

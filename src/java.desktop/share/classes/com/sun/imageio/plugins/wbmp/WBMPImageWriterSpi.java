@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2010, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -63,12 +63,10 @@ public class WBMPImageWriterSpi extends ImageWriterSpi {
               null, null, null, null);
     }
 
-    @Override
     public String getDescription(Locale locale) {
         return "Standard WBMP Image Writer";
     }
 
-    @Override
     public void onRegistration(ServiceRegistry registry,
                                Class<?> category) {
         if (registered) {
@@ -78,7 +76,6 @@ public class WBMPImageWriterSpi extends ImageWriterSpi {
         registered = true;
     }
 
-    @Override
     public boolean canEncodeImage(ImageTypeSpecifier type) {
         SampleModel sm = type.getSampleModel();
         if (!(sm instanceof MultiPixelPackedSampleModel))
@@ -89,7 +86,6 @@ public class WBMPImageWriterSpi extends ImageWriterSpi {
         return true;
     }
 
-    @Override
     public ImageWriter createWriterInstance(Object extension)
         throws IIOException {
         return new WBMPImageWriter(this);

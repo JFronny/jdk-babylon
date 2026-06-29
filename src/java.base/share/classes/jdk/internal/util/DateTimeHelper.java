@@ -49,23 +49,24 @@ public final class DateTimeHelper {
      * Requires extra capacity of 10 to avoid StringBuilder reallocation.
      */
     public static void formatTo(StringBuilder buf, LocalDate date) {
-        int year    = date.getYear(),
-            absYear = Math.abs(year);
-        if (absYear < 10000) {
+        int year  = date.getYear(),
+            month = date.getMonthValue(),
+            day   = date.getDayOfMonth();
+        int absYear = Math.abs(year);
+        if (absYear < 1000) {
             if (year < 0) {
                 buf.append('-');
             }
-            DecimalDigits.appendQuad(buf, absYear);
+            buf.repeat('0', absYear < 10 ? 3 : absYear < 100 ? 2 : 1);
+            buf.append(absYear);
         } else {
             if (year > 9999) {
                 buf.append('+');
             }
             buf.append(year);
         }
-        buf.append('-');
-        DecimalDigits.appendPair(buf, date.getMonthValue());
-        buf.append('-');
-        DecimalDigits.appendPair(buf, date.getDayOfMonth());
+        buf.append(month < 10 ? "-0" : "-").append(month)
+           .append(day < 10 ? "-0" : "-").append(day);
     }
 
     /**
@@ -73,14 +74,14 @@ public final class DateTimeHelper {
      * Requires extra capacity of 18 to avoid StringBuilder reallocation.
      */
     public static void formatTo(StringBuilder buf, LocalTime time) {
-        DecimalDigits.appendPair(buf, time.getHour());
-        buf.append(':');
-        DecimalDigits.appendPair(buf, time.getMinute());
-        int second = time.getSecond(),
+        int hour   = time.getHour(),
+            minute = time.getMinute(),
+            second = time.getSecond(),
             nano   = time.getNano();
+        buf.append(hour < 10 ? "0" : "").append(hour)
+           .append(minute < 10 ? ":0" : ":").append(minute);
         if ((second | nano) > 0) {
-            buf.append(':');
-            DecimalDigits.appendPair(buf, second);
+            buf.append(second < 10 ? ":0" : ":").append(second);
             if (nano > 0) {
                 buf.append('.');
                 int zeros = 9 - DecimalDigits.stringSize(nano);

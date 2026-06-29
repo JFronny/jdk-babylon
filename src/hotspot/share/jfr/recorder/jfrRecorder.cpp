@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -29,7 +29,6 @@
 #include "jfr/jni/jfrJavaSupport.hpp"
 #include "jfr/leakprofiler/sampling/objectSampler.hpp"
 #include "jfr/periodic/jfrOSInterface.hpp"
-#include "jfr/periodic/jfrRedactedEvents.hpp"
 #include "jfr/periodic/sampling/jfrCPUTimeThreadSampler.hpp"
 #include "jfr/periodic/sampling/jfrThreadSampler.hpp"
 #include "jfr/recorder/checkpoint/jfrCheckpointManager.hpp"
@@ -44,7 +43,6 @@
 #include "jfr/recorder/stacktrace/jfrStackTraceRepository.hpp"
 #include "jfr/recorder/storage/jfrStorage.hpp"
 #include "jfr/recorder/stringpool/jfrStringPool.hpp"
-#include "jfr/support/jfrSymbolTable.hpp"
 #include "jfr/support/jfrThreadLocal.hpp"
 #include "jfr/utilities/jfrTime.hpp"
 #include "jfr/writers/jfrJavaEventWriter.hpp"
@@ -101,9 +99,6 @@ bool JfrRecorder::on_create_vm_1() {
 
   if (is_started_on_commandline()) {
     if (!create_checkpoint_manager()) {
-      return false;
-    }
-    if (!JfrSymbolTable::create()) {
       return false;
     }
   }
@@ -244,10 +239,7 @@ bool JfrRecorder::on_create_vm_2() {
 }
 
 bool JfrRecorder::on_create_vm_3() {
-  if (log_is_enabled(Debug, jfr, redact)) {
-    JfrRedactedEvents::log_redaction();
-  }
-  JVMTI_ONLY( assert(JvmtiEnvBase::get_phase() == JVMTI_PHASE_LIVE, "invalid init sequence, phase is %d", (int)JvmtiEnvBase::get_phase()); )
+  JVMTI_ONLY( assert(JvmtiEnvBase::get_phase() == JVMTI_PHASE_LIVE, "invalid init sequence"); )
   return CDSConfig::is_dumping_archive() || launch_command_line_recordings(JavaThread::current());
 }
 
@@ -323,7 +315,7 @@ bool JfrRecorder::create_components() {
   if (!create_thread_group_manager()) {
     return false;
   }
-  return create_symbol_table();
+  return true;
 }
 
 // subsystems
@@ -421,16 +413,6 @@ bool JfrRecorder::create_thread_group_manager() {
   return JfrThreadGroupManager::create();
 }
 
-bool JfrRecorder::create_symbol_table() {
-  return !is_started_on_commandline() ? JfrSymbolTable::create() : true;
-}
-
-void JfrRecorder::destroy_symbol_table() {
-  if (!is_started_on_commandline()) {
-    JfrSymbolTable::destroy();
-  }
-}
-
 void JfrRecorder::destroy_components() {
   JfrJvmtiAgent::destroy();
   if (_post_box != nullptr) {
@@ -471,7 +453,6 @@ void JfrRecorder::destroy_components() {
   }
   JfrEventThrottler::destroy();
   JfrThreadGroupManager::destroy();
-  destroy_symbol_table();
 }
 
 bool JfrRecorder::create_recorder_thread() {

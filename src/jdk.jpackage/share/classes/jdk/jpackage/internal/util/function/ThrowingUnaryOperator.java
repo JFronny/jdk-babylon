@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,17 +27,17 @@ package jdk.jpackage.internal.util.function;
 import java.util.function.UnaryOperator;
 
 @FunctionalInterface
-public interface ThrowingUnaryOperator<T, E extends Exception> {
+public interface ThrowingUnaryOperator<T> {
 
-    T apply(T t) throws E;
+    T apply(T t) throws Throwable;
 
     public static <T> UnaryOperator<T> toUnaryOperator(
-            ThrowingUnaryOperator<T, ? extends Exception> v) {
+            ThrowingUnaryOperator<T> v) {
         return t -> {
             try {
                 return v.apply(t);
-            } catch (Exception ex) {
-                throw ExceptionBox.toUnchecked(ex);
+            } catch (Throwable ex) {
+                throw ExceptionBox.rethrowUnchecked(ex);
             }
         };
     }

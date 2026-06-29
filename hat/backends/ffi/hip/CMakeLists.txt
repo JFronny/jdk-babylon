@@ -36,8 +36,6 @@ if(HIP_FOUND)
 
     link_directories(
        ${CMAKE_BINARY_DIR}
-        ../shared/target/build
-
       # ${hip_LIB_INSTALL_DIR}
     )
 

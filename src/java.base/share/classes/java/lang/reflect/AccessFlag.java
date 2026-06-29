@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -429,6 +429,8 @@ public enum AccessFlag {
          *
          * @see Class#accessFlags()
          * @see ClassModel#flags()
+         * @see Modifier#classModifiers()
+         * @see Modifier#interfaceModifiers()
          * @jvms 4.1 The {@code ClassFile} Structure
          */
         CLASS(ACC_PUBLIC | ACC_FINAL | ACC_SUPER |
@@ -448,6 +450,7 @@ public enum AccessFlag {
          *
          * @see Field#accessFlags()
          * @see FieldModel#flags()
+         * @see Modifier#fieldModifiers()
          * @jvms 4.5 Fields
          */
         FIELD(ACC_PUBLIC | ACC_PRIVATE | ACC_PROTECTED |
@@ -463,6 +466,8 @@ public enum AccessFlag {
          *
          * @see Executable#accessFlags()
          * @see MethodModel#flags()
+         * @see Modifier#methodModifiers()
+         * @see Modifier#constructorModifiers()
          * @jvms 4.6 Methods
          */
         METHOD(ACC_PUBLIC | ACC_PRIVATE | ACC_PROTECTED |
@@ -488,6 +493,8 @@ public enum AccessFlag {
          *
          * @see Class#accessFlags()
          * @see InnerClassInfo#flags()
+         * @see Modifier#classModifiers()
+         * @see Modifier#interfaceModifiers()
          * @jvms 4.7.6 The {@code InnerClasses} Attribute
          */
         INNER_CLASS(ACC_PUBLIC | ACC_PRIVATE | ACC_PROTECTED |
@@ -504,6 +511,7 @@ public enum AccessFlag {
          *
          * @see Parameter#accessFlags()
          * @see MethodParameterInfo#flags()
+         * @see Modifier#parameterModifiers()
          * @jvms 4.7.24 The {@code MethodParameters} Attribute
          */
         METHOD_PARAMETER(ACC_FINAL | ACC_SYNTHETIC | ACC_MANDATED,

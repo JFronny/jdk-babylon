@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -37,7 +37,9 @@
  * @author Xuelei Fan
  */
 
-import java.security.BinaryEncodable;
+import java.io.*;
+import java.net.SocketException;
+import java.security.DEREncodable;
 import java.security.PEMDecoder;
 import java.util.*;
 import java.security.Security;
@@ -140,7 +142,7 @@ public class CircularCRLOneLevel {
     private static CertStore generateCertificateStore() throws Exception {
 
         // generate a cert store
-        Collection<BinaryEncodable> entries = new HashSet<>();
+        Collection<DEREncodable> entries = new HashSet<>();
         entries.add(PEM_DECODER.decode(crlStr, X509CRL.class));
         entries.add(PEM_DECODER.decode(crlIssuerCertStr, X509Certificate.class));
 

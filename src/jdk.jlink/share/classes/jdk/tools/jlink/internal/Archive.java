@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2014, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -24,7 +24,6 @@
  */
 package jdk.tools.jlink.internal;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
@@ -35,7 +34,7 @@ import java.util.stream.Stream;
  * An Archive of all content, classes, resources, configuration files, and
  * other, for a module.
  */
-public interface Archive extends Closeable {
+public interface Archive {
 
     /**
      * Entry is contained in an Archive
@@ -60,18 +59,21 @@ public interface Archive extends Closeable {
         private final String path;
 
         /**
-         * Constructs an entry of the given archive.
-         *
-         * @param archive the archive in which this entry exists.
-         * @param path the complete path of the entry, including the module.
-         * @param name an entry name relative to its containing module.
-         * @param type the entry type.
+         * Constructs an entry of the given archive
+         * @param archive archive
+         * @param path
+         * @param name an entry name that does not contain the module name
+         * @param type
          */
         public Entry(Archive archive, String path, String name, EntryType type) {
             this.archive = Objects.requireNonNull(archive);
             this.path = Objects.requireNonNull(path);
             this.name = Objects.requireNonNull(name);
             this.type = Objects.requireNonNull(type);
+        }
+
+        public final Archive archive() {
+            return archive;
         }
 
         public final EntryType type() {
@@ -132,6 +134,5 @@ public interface Archive extends Closeable {
     /*
      * Close the archive
      */
-    @Override
     void close() throws IOException;
 }

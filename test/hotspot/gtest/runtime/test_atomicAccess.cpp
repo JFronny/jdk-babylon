@@ -100,11 +100,6 @@ struct AtomicAccessXchgTestSupport {
   }
 };
 
-TEST_VM(AtomicAccessXchgTest, int8) {
-  using Support = AtomicAccessXchgTestSupport<int8_t>;
-  Support().test();
-}
-
 TEST_VM(AtomicAccessXchgTest, int32) {
   using Support = AtomicAccessXchgTestSupport<int32_t>;
   Support().test();
@@ -141,6 +136,9 @@ TEST_VM(AtomicAccessCmpxchgTest, int32) {
 }
 
 TEST_VM(AtomicAccessCmpxchgTest, int64) {
+  // Check if 64-bit atomics are available on the machine.
+  if (!VM_Version::supports_cx8()) return;
+
   using Support = AtomicAccessCmpxchgTestSupport<int64_t>;
   Support().test();
 }

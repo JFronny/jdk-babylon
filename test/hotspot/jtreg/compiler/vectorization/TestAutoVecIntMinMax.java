@@ -30,7 +30,6 @@ import jdk.test.lib.Utils;
 /*
  * @test
  * @bug 8288107
- * @key randomness
  * @summary Auto-vectorization enhancement for integer Math.max/Math.min operations
  * @library /test/lib /
  * @requires vm.compiler2.enabled

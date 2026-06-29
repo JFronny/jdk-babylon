@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,16 +27,16 @@ package jdk.jpackage.internal.util.function;
 import java.util.function.Consumer;
 
 @FunctionalInterface
-public interface ThrowingConsumer<T, E extends Exception> {
+public interface ThrowingConsumer<T> {
 
-    void accept(T t) throws E;
+    void accept(T t) throws Throwable;
 
-    public static <T> Consumer<T> toConsumer(ThrowingConsumer<T, ? extends Exception> v) {
+    public static <T> Consumer<T> toConsumer(ThrowingConsumer<T> v) {
         return o -> {
             try {
                 v.accept(o);
-            } catch (Exception ex) {
-                throw ExceptionBox.toUnchecked(ex);
+            } catch (Throwable ex) {
+                throw ExceptionBox.rethrowUnchecked(ex);
             }
         };
     }

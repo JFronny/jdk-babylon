@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,7 +25,7 @@
  * @test
  * @bug 8246774
  * @summary Tests constructor invocation exceptions are handled appropriately
- * @run junit ThrowingConstructorTest
+ * @run testng ThrowingConstructorTest
  */
 
 import java.io.ByteArrayInputStream;
@@ -35,20 +35,17 @@ import java.io.InvalidObjectException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
 import static java.lang.System.out;
-
-import org.junit.jupiter.api.Assertions;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 /**
  * If the constructor invocation throws an exception, an
  * `InvalidObjectException` is thrown with that exception as its cause.
  */
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class ThrowingConstructorTest {
 
     /** "big switch" that can be used to allow/disallow record construction
@@ -87,6 +84,7 @@ public class ThrowingConstructorTest {
 
     static final Class<InvalidObjectException> IOE = InvalidObjectException.class;
 
+    @DataProvider(name = "exceptionInstances")
     public Object[][] exceptionInstances() {
         Object[][] objs =  new Object[][] {
             new Object[] { new R1(),            NullPointerException.class,     "thrown from R1" },
@@ -100,8 +98,7 @@ public class ThrowingConstructorTest {
         return  objs;
     }
 
-    @ParameterizedTest
-    @MethodSource("exceptionInstances")
+    @Test(dataProvider = "exceptionInstances")
     public void testExceptions(Object objectToSerialize,
                                Class<? extends Throwable> expectedExType,
                                String expectedExMessage)
@@ -110,13 +107,13 @@ public class ThrowingConstructorTest {
         out.println("\n---");
         out.println("serializing: " + objectToSerialize);
         byte[] bytes = serialize(objectToSerialize);
-        InvalidObjectException ioe = Assertions.assertThrows(IOE, () -> deserialize(bytes));
+        InvalidObjectException ioe = expectThrows(IOE, () -> deserialize(bytes));
         out.println("caught expected IOE: " + ioe);
         Throwable t = ioe.getCause();
         assertTrue(t.getClass().equals(expectedExType),
                    "Expected:" + expectedExType + ", got:" + t);
         out.println("expected cause " + expectedExType +" : " + t);
-        assertEquals(expectedExMessage, t.getMessage());
+        assertEquals(t.getMessage(), expectedExMessage);
     }
 
     //  -- errors ( pass through unwrapped )
@@ -146,6 +143,7 @@ public class ThrowingConstructorTest {
         }
     }
 
+    @DataProvider(name = "errorInstances")
     public Object[][] errorInstances() {
         Object[][] objs =  new Object[][] {
             new Object[] { new R4(),              OutOfMemoryError.class,   "thrown from R4" },
@@ -159,8 +157,7 @@ public class ThrowingConstructorTest {
         return objs;
     }
 
-    @ParameterizedTest
-    @MethodSource("errorInstances")
+    @Test(dataProvider = "errorInstances")
     public void testErrors(Object objectToSerialize,
                            Class<? extends Throwable> expectedExType,
                            String expectedExMessage)
@@ -169,11 +166,11 @@ public class ThrowingConstructorTest {
         out.println("\n---");
         out.println("serializing: " + objectToSerialize);
         byte[] bytes = serialize(objectToSerialize);
-        Throwable t = Assertions.assertThrows(expectedExType, () -> deserialize(bytes));
+        Throwable t = expectThrows(expectedExType, () -> deserialize(bytes));
         assertTrue(t.getClass().equals(expectedExType),
                    "Expected:" + expectedExType + ", got:" + t);
         out.println("caught expected " + expectedExType +" : " + t);
-        assertEquals(expectedExMessage, t.getMessage());
+        assertEquals(t.getMessage(), expectedExMessage);
     }
 
     // --- infra

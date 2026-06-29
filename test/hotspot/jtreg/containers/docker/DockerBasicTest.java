@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2017, 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -29,7 +29,6 @@
  * @requires !vm.asan
  * @library /test/lib
  * @modules java.base/jdk.internal.misc
- *          java.base/jdk.internal.platform
  *          java.management
  *          jdk.jartool/sun.tools.jar
  * @build HelloDocker
@@ -46,7 +45,10 @@ public class DockerBasicTest {
     private static final String imageNameAndTag = Common.imageName("basic");
 
     public static void main(String[] args) throws Exception {
-        DockerTestUtils.checkCanTestDocker();
+        if (!DockerTestUtils.canTestDocker()) {
+            return;
+        }
+
         DockerTestUtils.buildJdkContainerImage(imageNameAndTag);
 
         try {
@@ -54,7 +56,9 @@ public class DockerBasicTest {
             testHelloDocker();
             testJavaVersionWithCgMounts();
         } finally {
-            DockerTestUtils.removeDockerImage(imageNameAndTag);
+            if (!DockerTestUtils.RETAIN_IMAGE_AFTER_TEST) {
+                DockerTestUtils.removeDockerImage(imageNameAndTag);
+            }
         }
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,7 +23,6 @@
 
 package nsk.jvmti.unit.ForceEarlyReturn;
 
-import jdk.test.lib.thread.ThreadWrapper;
 import java.io.PrintStream;
 import nsk.share.Consts;
 
@@ -77,7 +76,7 @@ public class earlyretvoid {
 
 
     // Tested thread class
-    static class earlyretThread extends ThreadWrapper {
+    static class earlyretThread extends Thread {
         Monitor mntr = null;
 
         public void run() {

@@ -27,60 +27,31 @@
 //
 
 /*
- * @test id=tls12
+ * @test
  * @bug 6668231
  * @summary Presence of a critical subjectAltName causes JSSE's SunX509 to
  *          fail trusted checks
- * @library /test/lib
- * @modules java.base/sun.security.x509 java.base/sun.security.util
- * @run main/othervm CriticalSubjectAltName TLSv1.2 MD5withRSA
+ * @run main/othervm CriticalSubjectAltName
  * @author Xuelei Fan
  */
-
 
 /*
- * @test id=tls13
- * @bug 6668231
- * @summary Presence of a critical subjectAltName causes JSSE's SunX509 to
- *          fail trusted checks
- * @library /test/lib
- * @modules java.base/sun.security.x509 java.base/sun.security.util
- * @run main/othervm CriticalSubjectAltName TLSv1.3 SHA256withRSA
- * @author Xuelei Fan
+ * This test depends on binary keystore, crisubn.jks and trusted.jks. Because
+ * JAVA keytool cannot generate X509 certificate with SubjectAltName extension,
+ * the certificates are generated with openssl toolkits and then imported into
+ * JAVA keystore.
+ *
+ * The crisubn.jks holds a private key entry and the corresponding X509
+ * certificate issued with an empty Subject field, and a critical
+ * SubjectAltName extension.
+ *
+ * The trusted.jks holds the trusted certificate.
  */
-
-
-import jdk.test.lib.security.CertificateBuilder;
-import sun.security.x509.GeneralName;
-import sun.security.x509.GeneralNames;
-import sun.security.x509.OIDName;
-import sun.security.x509.RFC822Name;
-import sun.security.x509.SubjectAlternativeNameExtension;
-
-
-import javax.net.ssl.HostnameVerifier;
-import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLServerSocket;
-import javax.net.ssl.SSLServerSocketFactory;
-import javax.net.ssl.SSLSession;
-import javax.net.ssl.SSLSocket;
-import javax.net.ssl.TrustManagerFactory;
-import java.io.BufferedWriter;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.net.URL;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.KeyStore;
+import java.io.*;
+import java.net.*;
+import javax.net.ssl.*;
+import java.security.Security;
 import java.security.cert.Certificate;
-import java.security.cert.X509Certificate;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.List;
-
-import jdk.test.lib.security.SecurityUtils;
 
 public class CriticalSubjectAltName implements HostnameVerifier {
     /*
@@ -99,18 +70,20 @@ public class CriticalSubjectAltName implements HostnameVerifier {
     /*
      * Where do we find the keystores?
      */
-    public static final char[] PASSPHRASE = "passphrase".toCharArray();
+    static String pathToStores = "./";
+    static String keyStoreFile = "crisubn.jks";
+    static String trustStoreFile = "trusted.jks";
+    static String passwd = "passphrase";
 
     /*
      * Is the server ready to serve?
      */
-    private final CountDownLatch serverReady = new CountDownLatch(1);
-    private final int SERVER_WAIT_SECS = 10;
+    volatile static boolean serverReady = false;
 
     /*
      * Turn on SSL debugging?
      */
-    static boolean debug = Boolean.getBoolean("test.debug");
+    static boolean debug = false;
 
     /*
      * If the client or server is doing some kind of object creation
@@ -128,17 +101,17 @@ public class CriticalSubjectAltName implements HostnameVerifier {
      * to avoid infinite hangs.
      */
     void doServerSide() throws Exception {
-        SSLContext ctx = createServerContext();
-        SSLServerSocketFactory sslssf = ctx.getServerSocketFactory();
+        SSLServerSocketFactory sslssf =
+            (SSLServerSocketFactory) SSLServerSocketFactory.getDefault();
         SSLServerSocket sslServerSocket =
             (SSLServerSocket) sslssf.createServerSocket(serverPort);
-        sslServerSocket.setEnabledProtocols(new String[]{protocol});
+        sslServerSocket.setEnabledProtocols(new String[]{"TLSv1.2"});
         serverPort = sslServerSocket.getLocalPort();
 
         /*
          * Signal Client, we're ready for his connect.
          */
-        serverReady.countDown();
+        serverReady = true;
 
         SSLSocket sslSocket = (SSLSocket) sslServerSocket.accept();
         OutputStream sslOS = sslSocket.getOutputStream();
@@ -149,36 +122,6 @@ public class CriticalSubjectAltName implements HostnameVerifier {
         sslSocket.close();
     }
 
-    private SSLContext createServerContext() throws Exception {
-        KeyStore ks = KeyStore.getInstance("PKCS12");
-        ks.load(null, null);
-        ks.setCertificateEntry("Trusted Cert", trustedCert);
-
-        Certificate[] chain = new Certificate[] {serverCert};
-        ks.setKeyEntry("Server key", serverKeys.getPrivate(),
-                PASSPHRASE, chain);
-
-        TrustManagerFactory tmf = TrustManagerFactory.getInstance("PKIX");
-        tmf.init(ks);
-
-        SSLContext ctx = SSLContext.getInstance(protocol);
-        KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
-        kmf.init(ks, PASSPHRASE);
-        ctx.init(kmf.getKeyManagers(), null, null);
-        return ctx;
-    }
-
-    private SSLContext createClientContext() throws Exception {
-        KeyStore ks = KeyStore.getInstance("PKCS12");
-        ks.load(null, null);
-        ks.setCertificateEntry("Trusted Cert", trustedCert);
-        TrustManagerFactory tmf = TrustManagerFactory.getInstance("PKIX");
-        tmf.init(ks);
-        SSLContext ctx = SSLContext.getInstance(protocol);
-        ctx.init(null, tmf.getTrustManagers(), null);
-        return ctx;
-    }
-
     /*
      * Define the client side of the test.
      *
@@ -187,12 +130,15 @@ public class CriticalSubjectAltName implements HostnameVerifier {
      */
     void doClientSide() throws Exception {
 
-        serverReady.await();
+        /*
+         * Wait for server to get started.
+         */
+        while (!serverReady) {
+            Thread.sleep(50);
+        }
 
-        SSLContext ctx = createClientContext();
         URL url = new URL("https://localhost:"+serverPort+"/index.html");
         HttpsURLConnection urlc = (HttpsURLConnection)url.openConnection();
-        urlc.setSSLSocketFactory(ctx.getSocketFactory());
         urlc.setHostnameVerifier(this);
         urlc.getInputStream();
 
@@ -213,73 +159,42 @@ public class CriticalSubjectAltName implements HostnameVerifier {
     volatile Exception clientException = null;
 
     public static void main(String[] args) throws Exception {
-        if (args[1].contains("MD5")) {
-            SecurityUtils.removeFromDisabledAlgs(
-                    "jdk.certpath.disabledAlgorithms", List.of("MD5"));
-            SecurityUtils.removeFromDisabledTlsAlgs("MD5");
-        }
+        // MD5 is used in this test case, don't disable MD5 algorithm.
+        Security.setProperty("jdk.certpath.disabledAlgorithms",
+                "MD2, RSA keySize < 1024");
+        Security.setProperty("jdk.tls.disabledAlgorithms",
+                "SSLv3, RC4, DH keySize < 768");
 
-        if (debug) {
+        String keyFilename =
+            System.getProperty("test.src", "./") + "/" + pathToStores +
+                "/" + keyStoreFile;
+        String trustFilename =
+            System.getProperty("test.src", "./") + "/" + pathToStores +
+                "/" + trustStoreFile;
+
+        System.setProperty("javax.net.ssl.keyStore", keyFilename);
+        System.setProperty("javax.net.ssl.keyStorePassword", passwd);
+        System.setProperty("javax.net.ssl.trustStore", trustFilename);
+        System.setProperty("javax.net.ssl.trustStorePassword", passwd);
+
+        if (debug)
             System.setProperty("javax.net.debug", "all");
-        }
 
         /*
          * Start the tests.
          */
-        new CriticalSubjectAltName(args[0], args[1]);
+        new CriticalSubjectAltName();
     }
 
     Thread clientThread = null;
     Thread serverThread = null;
-    private final String protocol;
-    private KeyPair serverKeys;
-    private X509Certificate trustedCert;
-    private X509Certificate serverCert;
-
-    private void setupCertificates(String signatureAlg) throws Exception {
-        KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
-        KeyPair caKeys = kpg.generateKeyPair();
-        serverKeys = kpg.generateKeyPair();
-
-        trustedCert = CertificateBuilder.newCertificateBuilder(
-            "CN=Someone, O=Some Org, ST=Some-State, C=US",
-                caKeys.getPublic(), caKeys.getPublic())
-                .addBasicConstraintsExt(true, true, -1)
-                .setOneHourValidity()
-                .build(null, caKeys.getPrivate(), signatureAlg);
-        if (debug) {
-            System.out.println("Trusted Certificate");
-            CertificateBuilder.printCertificate(trustedCert, System.out);
-        }
-
-        GeneralNames gns = new GeneralNames();
-        gns.add(new GeneralName(new RFC822Name("example@openjdk.net")));
-        gns.add(new GeneralName(new OIDName("1.2.3.4")));
-
-        serverCert = CertificateBuilder.newCertificateBuilder("",
-                serverKeys.getPublic(), caKeys.getPublic())
-                .setOneHourValidity()
-                .addBasicConstraintsExt(false, false, -1)
-                .addExtension(new SubjectAlternativeNameExtension(true, gns))
-                .setOneHourValidity()
-                .build(trustedCert, caKeys.getPrivate(), signatureAlg);
-        if (debug) {
-            System.out.println("Server Certificate");
-            CertificateBuilder.printCertificate(serverCert, System.out);
-        }
-    }
-
 
     /*
      * Primary constructor, used to drive remainder of the test.
      *
      * Fork off the other side, then do your work.
      */
-    CriticalSubjectAltName(String protocol, String signatureAlg) throws Exception {
-        this.protocol = protocol;
-
-        setupCertificates(signatureAlg);
-
+    CriticalSubjectAltName() throws Exception {
         if (separateServerThread) {
             startServer(true);
             startClient(false);
@@ -323,7 +238,7 @@ public class CriticalSubjectAltName implements HostnameVerifier {
                          * Release the client, if not active already...
                          */
                         System.err.println("Server died...");
-                        serverReady.countDown();
+                        serverReady = true;
                         serverException = e;
                     }
                 }

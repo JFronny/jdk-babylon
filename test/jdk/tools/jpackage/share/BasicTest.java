@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -22,7 +22,6 @@
  */
 
 
-import static jdk.jpackage.test.RunnablePackageTest.Action.CREATE;
 import static jdk.jpackage.test.RunnablePackageTest.Action.CREATE_AND_UNPACK;
 
 import java.io.IOException;
@@ -33,7 +32,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
@@ -43,16 +41,13 @@ import jdk.jpackage.test.Annotations.Parameter;
 import jdk.jpackage.test.Annotations.ParameterSupplier;
 import jdk.jpackage.test.Annotations.Test;
 import jdk.jpackage.test.CannedFormattedString;
-import jdk.jpackage.test.ConfigurationTarget;
 import jdk.jpackage.test.Executor;
 import jdk.jpackage.test.HelloApp;
 import jdk.jpackage.test.JPackageCommand;
-import jdk.jpackage.test.JPackageOutputValidator;
 import jdk.jpackage.test.JPackageStringBundle;
 import jdk.jpackage.test.JavaAppDesc;
 import jdk.jpackage.test.JavaTool;
 import jdk.jpackage.test.PackageTest;
-import jdk.jpackage.test.PackageType;
 import jdk.jpackage.test.TKit;
 import jdk.tools.jlink.internal.LinkableRuntimeImage;
 
@@ -181,94 +176,57 @@ public final class BasicTest {
     }
 
     @Test
-    @Parameter("false")
-    @Parameter("true")
-    public void testQuiet(boolean appImage) {
+    @SuppressWarnings("unchecked")
+    public void testVerbose() {
+        JPackageCommand cmd = JPackageCommand.helloAppImage()
+                // Disable default logic adding `--verbose` option
+                // to jpackage command line.
+                .ignoreDefaultVerbose(true)
+                .saveConsoleOutput(true)
+                .setFakeRuntime().executePrerequisiteActions();
 
-        ConfigurationTarget target;
-        if (appImage) {
-            target = new ConfigurationTarget(JPackageCommand.helloAppImage());
+        List<String> expectedVerboseOutputStrings = new ArrayList<>();
+        expectedVerboseOutputStrings.add("Creating app package:");
+        if (TKit.isWindows()) {
+            expectedVerboseOutputStrings.add(
+                    "Succeeded in building Windows Application Image package");
+        } else if (TKit.isLinux()) {
+            expectedVerboseOutputStrings.add(
+                    "Succeeded in building Linux Application Image package");
+        } else if (TKit.isOSX()) {
+            expectedVerboseOutputStrings.add("Preparing Info.plist:");
+            expectedVerboseOutputStrings.add(
+                    "Succeeded in building Mac Application Image package");
         } else {
-            target = new ConfigurationTarget(new PackageTest().configureHelloApp());
+            TKit.throwUnknownPlatformError();
         }
 
-        target.addInitializer(cmd -> {
-            // Disable the default logic adding `--verbose` option to jpackage command line.
-            cmd.ignoreDefaultVerbose(true)
-            .useToolProvider(true)
-            .saveConsoleOutput(true)
-            .setFakeRuntime();
+        TKit.deleteDirectoryContentsRecursive(cmd.outputDir());
+        List<String> nonVerboseOutput = cmd.execute().getOutput();
+        List<String>[] verboseOutput = (List<String>[])new List<?>[1];
 
-            new JPackageOutputValidator().validateEndOfStream().applyTo(cmd);
-
-            var stderrValidator = new JPackageOutputValidator().stderr();
-            if (cmd.packageType() == PackageType.LINUX_DEB) {
-                stderrValidator.expectMatchingStrings(JPackageCommand.makeSummaryWarning("message.debs-like-licenses"));
-            }
-            stderrValidator.validateEndOfStream().applyTo(cmd);
+        // Directory clean up is not 100% reliable on Windows because of
+        // antivirus software that can lock .exe files. Setup
+        // different output directory instead of cleaning the default one for
+        // verbose jpackage run.
+        TKit.withTempDirectory("verbose-output", tempDir -> {
+            cmd.setArgumentValue("--dest", tempDir);
+            cmd.addArgument("--verbose");
+            verboseOutput[0] = cmd.execute().getOutput();
         });
 
-        target.cmd().map(JPackageCommand::execute);
-        target.test().ifPresent(test -> {
-            test.run(CREATE);
-        });
-    }
+        TKit.assertTrue(nonVerboseOutput.size() < verboseOutput[0].size(),
+                "Check verbose output is longer than regular");
 
-    @Test
-    @Parameter("false")
-    @Parameter("true")
-    public void testVerbose(boolean appImage) {
-        testVerbose(appImage, cmd -> {
-            cmd.useToolProvider(true).addArgument("--verbose");
-        });
-    }
-
-    @Test
-    @Parameter("false")
-    @Parameter("true")
-    public void testVerboseFromEnvVar(boolean appImage) {
-        testVerbose(appImage, cmd -> {
-            cmd.useToolProvider(false).setEnvVar("JPACKAGE_DEBUG", "true");
-        });
-    }
-
-    private static void testVerbose(boolean appImage, Consumer<JPackageCommand> mutator) {
-
-        ConfigurationTarget target;
-        if (appImage) {
-            target = new ConfigurationTarget(JPackageCommand.helloAppImage());
-        } else {
-            target = new ConfigurationTarget(new PackageTest().configureHelloApp());
-        }
-
-        target.addInitializer(cmd -> {
-            // Disable the default logic adding `--verbose` option to jpackage command line.
-            cmd.ignoreDefaultVerbose(true)
-                    .saveConsoleOutput(true)
-                    .setFakeRuntime()
-                    .mutate(mutator);
-
-            List<CannedFormattedString> verboseContent;
-            if (appImage) {
-                verboseContent = List.of(
-                        JPackageStringBundle.MAIN.cannedFormattedString("message.create-app-image"),
-                        JPackageStringBundle.MAIN.cannedFormattedString("message.app-image-created"));
-            } else {
-                verboseContent = List.of(
-                        JPackageStringBundle.MAIN.cannedFormattedString("message.create-package"),
-                        JPackageStringBundle.MAIN.cannedFormattedString("message.package-created"));
-            }
-
-            new JPackageOutputValidator()
-                    .expectMatchingStrings(verboseContent.toArray(CannedFormattedString[]::new))
-                    .matchTimestamps()
-                    .stripTimestamps()
-                    .applyTo(cmd);
+        expectedVerboseOutputStrings.forEach(str -> {
+            TKit.assertTextStream(str).label("regular output")
+                    .predicate(String::contains).negate()
+                    .apply(nonVerboseOutput);
         });
 
-        target.cmd().ifPresent(JPackageCommand::execute);
-        target.test().ifPresent(test -> {
-            test.run(CREATE);
+        expectedVerboseOutputStrings.forEach(str -> {
+            TKit.assertTextStream(str).label("verbose output")
+                    .apply(verboseOutput[0]);
         });
     }
 
@@ -286,9 +244,12 @@ public final class BasicTest {
             cmd.addArgument("--verbose");
         }
 
-        cmd.validateErr(
-                JPackageCommand.makeError("error.no-main-class-with-main-jar", "hello.jar"),
-                JPackageCommand.makeAdvice("error.no-main-class-with-main-jar.advice", "hello.jar"));
+        cmd.validateOutput(Stream.of(
+                List.of("error.no-main-class-with-main-jar", "hello.jar"),
+                List.of("error.no-main-class-with-main-jar.advice", "hello.jar")
+        ).map(args -> {
+            return JPackageStringBundle.MAIN.cannedFormattedString(args.getFirst(), args.subList(1, args.size()).toArray());
+        }).toArray(CannedFormattedString[]::new));
 
         cmd.execute(1);
     }
@@ -346,12 +307,12 @@ public final class BasicTest {
     @Test
     @Parameter("true")
     @Parameter("false")
-    public void testNoOutputDir(boolean appImage) throws IOException {
+    public void testNoOutputDir(boolean appImage) throws Throwable {
         var cmd = JPackageCommand.helloAppImage();
 
         final var execDir = cmd.outputDir();
 
-        final ThrowingConsumer<JPackageCommand, IOException> initializer = cmdNoOutputDir -> {
+        final ThrowingConsumer<JPackageCommand> initializer = cmdNoOutputDir -> {
             cmd.executePrerequisiteActions();
 
             final var pkgType = cmdNoOutputDir.packageType();
@@ -378,7 +339,7 @@ public final class BasicTest {
 
             // JPackageCommand.execute() will not do the cleanup if `--dest` parameter
             // is not specified, do it manually.
-            Files.createDirectories(execDir);
+            TKit.createDirectories(execDir);
             TKit.deleteDirectoryContentsRecursive(execDir);
         };
 
@@ -448,8 +409,8 @@ public final class BasicTest {
 
         if (TestTempType.TEMPDIR_NOT_EMPTY.equals(type)) {
             pkgTest.setExpectedExitCode(1).addInitializer(cmd -> {
-                cmd.validateErr(JPackageCommand.makeError(
-                        "error.parameter-not-empty-directory", cmd.getArgumentValue("--temp"), "--temp"));
+                cmd.validateOutput(JPackageStringBundle.MAIN.cannedFormattedString(
+                        "ERR_BuildRootInvalid", cmd.getArgumentValue("--temp")));
             }).addBundleVerifier(cmd -> {
                 // Check jpackage didn't use the supplied directory.
                 Path tempDir = Path.of(cmd.getArgumentValue("--temp"));

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2004, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -59,12 +59,10 @@ public class JPEGImageReaderSpi extends ImageReaderSpi {
               );
     }
 
-    @Override
     public String getDescription(Locale locale) {
         return "Standard JPEG Image Reader";
     }
 
-    @Override
     public boolean canDecodeInput(Object source) throws IOException {
         if (!(source instanceof ImageInputStream)) {
             return false;
@@ -82,7 +80,6 @@ public class JPEGImageReaderSpi extends ImageReaderSpi {
         return false;
     }
 
-    @Override
     public ImageReader createReaderInstance(Object extension)
         throws IIOException {
         return new JPEGImageReader(this);

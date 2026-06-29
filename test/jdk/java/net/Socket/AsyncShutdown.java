@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -24,13 +24,11 @@
 /*
  * @test
  * @requires (os.family == "linux" | os.family == "mac")
+ * @run testng AsyncShutdown
  * @summary Test shutdownInput/shutdownOutput with threads blocked in read/write
- * @run junit AsyncShutdown
  */
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -40,56 +38,54 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
-import static org.junit.jupiter.api.Assertions.*;
+import org.testng.annotations.Test;
+import static org.testng.Assert.*;
 
-class AsyncShutdown {
+@Test
+public class AsyncShutdown {
 
-    @ParameterizedTest
-    @ValueSource(booleans = { false, true })
-    void testShutdownInput(boolean timed) throws IOException {
+    public void testShutdownInput1() throws IOException {
         withConnection((s1, s2) -> {
-            InputStream in = s1.getInputStream();
             scheduleShutdownInput(s1, 2000);
-            if (timed) {
-                s1.setSoTimeout(30*1000);
-            }
-            assertEquals(-1, in.read());
-            assertEquals(0, in.available());
+            int n = s1.getInputStream().read();
+            assertTrue(n == -1);
         });
     }
 
-    @Test
-    void testShutdownOutput1() throws IOException {
+    public void testShutdownInput2() throws IOException {
         withConnection((s1, s2) -> {
-            OutputStream out = s1.getOutputStream();
+            scheduleShutdownInput(s1, 2000);
+            s1.setSoTimeout(30*1000);
+            int n = s1.getInputStream().read();
+            assertTrue(n == -1);
+        });
+    }
+
+    public void testShutdownOutput1() throws IOException {
+        withConnection((s1, s2) -> {
             scheduleShutdownOutput(s1, 2000);
             byte[] data = new byte[128*1024];
             try {
                 while (true) {
-                    out.write(data);
+                    s1.getOutputStream().write(data);
                 }
             } catch (IOException expected) { }
         });
     }
 
-    @Test
-    void testShutdownOutput2() throws IOException {
+    public void testShutdownOutput2() throws IOException {
         withConnection((s1, s2) -> {
             s1.setSoTimeout(100);
             try {
                 s1.getInputStream().read();
-                fail();
+                assertTrue(false);
             } catch (SocketTimeoutException e) { }
 
-            OutputStream out = s1.getOutputStream();
             scheduleShutdownOutput(s1, 2000);
             byte[] data = new byte[128*1024];
             try {
                 while (true) {
-                    out.write(data);
+                    s1.getOutputStream().write(data);
                 }
             } catch (IOException expected) { }
         });

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2017, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,20 +27,19 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Properties;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.testng.Assert;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
 
 /**
  * @test
  * @bug 8183743
  * @summary Test to verify the new overload method with Charset functions the
  * same as the existing method that takes a charset name.
- * @run junit EncodingTest
+ * @run testng EncodingTest
  */
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class EncodingTest {
+    @DataProvider(name = "parameters")
     public Object[][] getParameters() throws IOException {
         return new Object[][]{
             {StandardCharsets.UTF_8.name(), null},
@@ -52,8 +51,7 @@ public class EncodingTest {
      * encoding name or a charset can be read with Properties#loadFromXML that
      * returns the same Properties object.
      */
-    @ParameterizedTest
-    @MethodSource("getParameters")
+    @Test(dataProvider = "parameters")
     void testLoadAndStore(String encoding, Charset charset) throws IOException {
         Properties props = new Properties();
         props.put("k0", "\u6C34");
@@ -76,6 +74,6 @@ public class EncodingTest {
             }
         }
 
-        Assertions.assertEquals(p, props);
+        Assert.assertEquals(props, p);
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1996, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1996, 2020, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -32,13 +32,13 @@ package java.awt.event;
  * <P>
  * Mouse motion events occur when a mouse is moved or dragged.
  * (Many such events will be generated in a normal program.
- * To track clicks and other mouse events, use the {@link MouseAdapter}.)
+ * To track clicks and other mouse events, use the MouseAdapter.)
  * <P>
  * Extend this class to create a {@code MouseEvent} listener
  * and override the methods for the events of interest. (If you implement the
  * {@code MouseMotionListener} interface, you have to define all of
  * the methods in it. This abstract class defines null methods for them
- * all, so you have to define only methods for events you care about.)
+ * all, so you can only have to define methods for events you care about.)
  * <P>
  * Create a listener object using the extended class and then register it with
  * a component using the component's {@code addMouseMotionListener}
@@ -61,14 +61,17 @@ public abstract class MouseMotionAdapter implements MouseMotionListener {
     protected MouseMotionAdapter() {}
 
     /**
-     * {@inheritDoc}
+     * Invoked when a mouse button is pressed on a component and then
+     * dragged.  Mouse drag events will continue to be delivered to
+     * the component where the first originated until the mouse button is
+     * released (regardless of whether the mouse position is within the
+     * bounds of the component).
      */
-    @Override
     public void mouseDragged(MouseEvent e) {}
 
     /**
-     * {@inheritDoc}
+     * Invoked when the mouse button has been moved on a component
+     * (with no buttons no down).
      */
-    @Override
     public void mouseMoved(MouseEvent e) {}
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,20 +25,20 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.TimeZone;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.testng.annotations.Test;
+import org.testng.annotations.DataProvider;
+import static org.testng.Assert.assertEquals;
 
 /**
  * @test
  * @bug 8285844
  * @summary Checks round-trips between TimeZone and ZoneId are consistent
- * @run junit ZoneIdRoundTripTest
+ * @run testng ZoneIdRoundTripTest
  */
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@Test
 public class ZoneIdRoundTripTest {
 
+    @DataProvider
     private Object[][] testZoneIds() {
         return new Object[][] {
                 {ZoneId.of("Z"), 0},
@@ -60,12 +60,11 @@ public class ZoneIdRoundTripTest {
         };
     }
 
-    @ParameterizedTest
-    @MethodSource("testZoneIds")
+    @Test(dataProvider="testZoneIds")
     public void test_ZoneIdRoundTrip(ZoneId zid, int offset) {
         var tz = TimeZone.getTimeZone(zid);
-        assertEquals(offset, tz.getRawOffset());
-        assertEquals(zid.normalized(), tz.toZoneId().normalized());
+        assertEquals(tz.getRawOffset(), offset);
+        assertEquals(tz.toZoneId().normalized(), zid.normalized());
     }
 }
 

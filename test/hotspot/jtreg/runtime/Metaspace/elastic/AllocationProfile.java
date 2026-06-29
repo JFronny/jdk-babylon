@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020, 2024, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2020 SAP SE. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
@@ -24,7 +24,6 @@
  */
 
 import java.util.*;
-import jdk.test.lib.Utils;
 
 public class AllocationProfile {
 
@@ -48,7 +47,7 @@ public class AllocationProfile {
      * Returns random allocation size measured in words
      */
     public long randomAllocationSize() {
-        Random r = Utils.getRandomInstance();
+        Random r = new Random();
         return r.nextInt((int)(maximumSingleAllocationSize - minimumSingleAllocationSize + 1)) + minimumSingleAllocationSize;
     }
 

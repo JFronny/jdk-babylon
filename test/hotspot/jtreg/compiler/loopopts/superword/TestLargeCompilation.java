@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,10 +25,8 @@ package compiler.loopopts.superword;
 
 /*
  * @test
- * @key randomness
  * @bug 8327978
  * @summary Test compile time for large compilation, where SuperWord takes especially much time.
- * @library /test/lib
  * @run main/othervm/timeout=30 -Xbatch
  *                              -XX:CompileCommand=compileonly,compiler.loopopts.superword.TestLargeCompilation::test*
  *                              -XX:+IgnoreUnrecognizedVMOptions -XX:LoopUnrollLimit=1000
@@ -36,10 +34,9 @@ package compiler.loopopts.superword;
  */
 
 import java.util.Random;
-import jdk.test.lib.Utils;
 
 public class TestLargeCompilation {
-    private static final Random random = Utils.getRandomInstance();
+    private static final Random random = new Random();
     static final int RANGE_CON = 1024 * 8;
 
     static int init = 593436;

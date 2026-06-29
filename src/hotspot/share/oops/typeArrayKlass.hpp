@@ -56,10 +56,10 @@ class TypeArrayKlass : public ArrayKlass {
   jint max_length()                     { return _max_length; }
   void set_max_length(jint m)           { _max_length = m;    }
 
-  u2 compute_modifier_flags() const override;
+  u2 compute_modifier_flags() const;
 
   // testers
-  DEBUG_ONLY(bool is_typeArray_klass_slow() const override { return true; })
+  DEBUG_ONLY(bool is_typeArray_klass_slow() const  { return true; })
 
   // klass allocation
   static TypeArrayKlass* create_klass(BasicType type, const char* name_str,
@@ -68,15 +68,15 @@ class TypeArrayKlass : public ArrayKlass {
     return create_klass(type, external_name(type), THREAD);
   }
 
-  size_t oop_size(oop obj) const override;
+  size_t oop_size(oop obj) const;
 
   // Allocation
-  oop multi_allocate(int rank, jint* sizes, TRAPS) override;
+  oop multi_allocate(int rank, jint* sizes, TRAPS);
 
-  oop protection_domain() const override { return nullptr; }
+  oop protection_domain() const { return nullptr; }
 
   // Copying
-  void  copy_array(arrayOop s, int src_pos, arrayOop d, int dst_pos, int length, TRAPS) override;
+  void  copy_array(arrayOop s, int src_pos, arrayOop d, int dst_pos, int length, TRAPS);
 
   // Oop iterators. Since there are no oops in TypeArrayKlasses,
   // these functions only return the size of the object.
@@ -113,23 +113,23 @@ class TypeArrayKlass : public ArrayKlass {
 
   // Sizing
   static int header_size()  { return sizeof(TypeArrayKlass)/wordSize; }
-  int size() const override { return ArrayKlass::static_size(header_size()); }
+  int size() const          { return ArrayKlass::static_size(header_size()); }
 
   // Initialization (virtual from Klass)
-  void initialize(TRAPS) override;
+  void initialize(TRAPS);
 
  public:
   // Printing
-  void oop_print_on(oop obj, outputStream* st) override;
+  void oop_print_on(oop obj, outputStream* st);
   void oop_print_elements_on(typeArrayOop ta, outputStream* st);
-  void print_on(outputStream* st) const override;
-  void print_value_on(outputStream* st) const override;
+  void print_on(outputStream* st) const;
+  void print_value_on(outputStream* st) const;
 
  public:
-  const char* internal_name() const override;
+  const char* internal_name() const;
 
-  ModuleEntry* module() const override;
-  PackageEntry* package() const override;
+  ModuleEntry* module() const;
+  PackageEntry* package() const;
 };
 
 #endif // SHARE_OOPS_TYPEARRAYKLASS_HPP

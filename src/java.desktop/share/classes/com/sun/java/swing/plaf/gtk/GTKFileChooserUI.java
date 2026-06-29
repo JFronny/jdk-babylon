@@ -188,7 +188,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
         super(filechooser);
     }
 
-    @Override
     protected ActionMap createActionMap() {
         ActionMap map = new ActionMapUIResource();
         map.put("approveSelection", getApproveSelectionAction());
@@ -198,7 +197,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
         return map;
     }
 
-    @Override
     @SuppressWarnings("deprecation")
     public String getFileName() {
         JFileChooser fc = getFileChooser();
@@ -245,7 +243,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
         return sb.toString();
     }
 
-    @Override
     public void setFileName(String fileName) {
         if (fileNameTextField != null) {
             fileNameTextField.setText(fileName);
@@ -256,22 +253,18 @@ class GTKFileChooserUI extends SynthFileChooserUI {
 //      return pathField.getText();
 //     }
 
-    @Override
     public void setDirectoryName(String dirname) {
         pathField.setText(dirname);
     }
 
-    @Override
     public void ensureFileIsVisible(JFileChooser fc, File f) {
         // PENDING
     }
 
-    @Override
     public void rescanCurrentDirectory(JFileChooser fc) {
         getModel().validateFileCache();
     }
 
-    @Override
     public JPanel getAccessoryPanel() {
         return accessoryPanel;
     }
@@ -280,7 +273,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
     // * FileView operations *
     // ***********************
 
-    @Override
     public FileView getFileView(JFileChooser fc) {
         return fileView;
     }
@@ -290,20 +282,16 @@ class GTKFileChooserUI extends SynthFileChooserUI {
             iconCache = null;
         }
 
-        @Override
         public void clearIconCache() {
         }
 
-        @Override
         public Icon getCachedIcon(File f) {
             return null;
         }
 
-        @Override
         public void cacheIcon(File f, Icon i) {
         }
 
-        @Override
         public Icon getIcon(File f) {
             return (f != null && f.isDirectory()) ? directoryIcon : fileIcon;
         }
@@ -329,7 +317,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
         }
     }
 
-    @Override
     protected void doSelectedFileChanged(PropertyChangeEvent e) {
         super.doSelectedFileChanged(e);
         File f = (File) e.getNewValue();
@@ -338,7 +325,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
         }
     }
 
-    @Override
     protected void doDirectoryChanged(PropertyChangeEvent e) {
         directoryList.clearSelection();
         ListSelectionModel sm = directoryList.getSelectionModel();
@@ -371,7 +357,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
         super.doDirectoryChanged(e);
     }
 
-    @Override
     protected void doAccessoryChanged(PropertyChangeEvent e) {
         if (getAccessoryPanel() != null) {
             if (e.getOldValue() != null) {
@@ -389,7 +374,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
         }
     }
 
-    @Override
     protected void doFileSelectionModeChanged(PropertyChangeEvent e) {
         directoryList.clearSelection();
         rightPanel.setVisible(((Integer)e.getNewValue()).intValue() != JFileChooser.DIRECTORIES_ONLY);
@@ -397,7 +381,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
         super.doFileSelectionModeChanged(e);
     }
 
-    @Override
     protected void doMultiSelectionChanged(PropertyChangeEvent e) {
         if (getFileChooser().isMultiSelectionEnabled()) {
             fileList.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
@@ -412,7 +395,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
         super.doMultiSelectionChanged(e);
     }
 
-    @Override
     protected void doControlButtonsChanged(PropertyChangeEvent e) {
         super.doControlButtonsChanged(e);
 
@@ -425,7 +407,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
         updateDefaultButton();
     }
 
-    @Override
     protected void doAncestorChanged(PropertyChangeEvent e) {
         if (e.getOldValue() == null && e.getNewValue() != null) {
             // Ancestor was added, set initial focus
@@ -443,7 +424,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
     // ************ Create Listeners **************
     // ********************************************
 
-    @Override
     public ListSelectionListener createListSelectionListener(JFileChooser fc) {
         return new SelectionListener();
     }
@@ -454,7 +434,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
             this.list = list;
         }
 
-        @Override
         public void mouseClicked(MouseEvent e) {
 
             if (!getFileChooser().isEnabled()) {
@@ -485,7 +464,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
             }
         }
 
-        @Override
         public void mouseEntered(MouseEvent evt) {
             if (list != null) {
                 TransferHandler th1 = getFileChooser().getTransferHandler();
@@ -500,7 +478,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
         }
     }
 
-    @Override
     protected MouseListener createDoubleClickListener(JFileChooser fc, JList<?> list) {
         return new DoubleClickListener(list);
     }
@@ -509,7 +486,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
 
     @SuppressWarnings("deprecation")
     protected class SelectionListener implements ListSelectionListener {
-        @Override
         public void valueChanged(ListSelectionEvent e) {
             if (!e.getValueIsAdjusting()) {
                 JFileChooser chooser = getFileChooser();
@@ -571,7 +547,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
         return new GTKFileChooserUI((JFileChooser)c);
     }
 
-    @Override
     public void installUI(JComponent c) {
         accessoryPanel = new JPanel(new BorderLayout(10, 10));
         accessoryPanel.setName("GTKFileChooser.accessoryPanel");
@@ -579,7 +554,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
         super.installUI(c);
     }
 
-    @Override
     public void uninstallUI(JComponent c) {
         c.removePropertyChangeListener(filterComboBoxModel);
         super.uninstallUI(c);
@@ -591,7 +565,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
         getFileChooser().removeAll();
     }
 
-    @Override
     public void installComponents(JFileChooser fc) {
         super.installComponents(fc);
 
@@ -650,7 +623,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
 
         JPanel comboBoxPanel = new JPanel(new FlowLayout(FlowLayout.CENTER,
                                                          0, 0) {
-            @Override
             public void layoutContainer(Container target) {
                 super.layoutContainer(target);
                 JComboBox<?> comboBox = directoryComboBox;
@@ -761,7 +733,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
             curDirName = currentDirectory.getPath();
         }
         JLabel tmp = new JLabel(curDirName) {
-            @Override
             public Dimension getMaximumSize() {
                 Dimension d = super.getMaximumSize();
                 d.height = getPreferredSize().height;
@@ -776,7 +747,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
 
         // add the fileName field
         JTextField tmp2 = new JTextField() {
-            @Override
             public Dimension getMaximumSize() {
                 Dimension d = super.getMaximumSize();
                 d.height = getPreferredSize().height;
@@ -841,7 +811,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
         }
     }
 
-    @Override
     protected void installListeners(JFileChooser fc) {
         super.installListeners(fc);
 
@@ -853,7 +822,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
         return SwingUtilities2.getUIDefaultsInt(key, l);
     }
 
-    @Override
     protected void uninstallListeners(JFileChooser fc) {
         super.uninstallListeners(fc);
 
@@ -863,7 +831,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
     }
 
     private class GTKFCPropertyChangeListener implements PropertyChangeListener {
-        @Override
         public void propertyChange(PropertyChangeEvent e) {
             String prop = e.getPropertyName();
             if (prop.equals("GTKFileChooser.showDirectoryIcons")) {
@@ -874,7 +841,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
         }
     }
 
-    @Override
     protected void installDefaults(JFileChooser fc) {
         super.installDefaults(fc);
         readOnly = UIManager.getBoolean("FileChooser.readOnly");
@@ -884,13 +850,11 @@ class GTKFileChooserUI extends SynthFileChooserUI {
             Boolean.TRUE.equals(fc.getClientProperty("GTKFileChooser.showFileIcons"));
     }
 
-    @Override
     protected void installIcons(JFileChooser fc) {
         directoryIcon    = UIManager.getIcon("FileView.directoryIcon");
         fileIcon         = UIManager.getIcon("FileView.fileIcon");
     }
 
-    @Override
     protected void installStrings(JFileChooser fc) {
         super.installStrings(fc);
 
@@ -930,7 +894,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
         filterLabelMnemonic = UIManager.getInt("FileChooser.filterLabelMnemonic");
     }
 
-    @Override
     protected void uninstallStrings(JFileChooser fc) {
         super.uninstallStrings(fc);
 
@@ -1009,17 +972,14 @@ class GTKFileChooserUI extends SynthFileChooserUI {
         return scrollpane;
     }
 
-    @Override
     protected void createModel() {
         model = new GTKDirectoryModel();
     }
 
-    @Override
     public BasicDirectoryModel getModel() {
         return model;
     }
 
-    @Override
     public Action getApproveSelectionAction() {
         return approveSelectionAction;
     }
@@ -1030,7 +990,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
             super(getFileChooser());
         }
 
-        @Override
         protected void sort(Vector<? extends File> v) {
             FileSystemView fsv = getFileChooser().getFileSystemView();
             if (fsv == null) {
@@ -1069,7 +1028,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
             directoryChanged();
         }
 
-        @Override
         public int getSize() {
             return getModel().getDirectories().size() + 1;
         }
@@ -1080,12 +1038,10 @@ class GTKFileChooserUI extends SynthFileChooserUI {
                     curDir;
         }
 
-        @Override
         public void intervalAdded(ListDataEvent e) {
             fireIntervalAdded(this, e.getIndex0(), e.getIndex1());
         }
 
-        @Override
         public void intervalRemoved(ListDataEvent e) {
             fireIntervalRemoved(this, e.getIndex0(), e.getIndex1());
         }
@@ -1099,7 +1055,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
 
         // PENDING - fire the correct interval changed - currently sending
         // out that everything has changed
-        @Override
         public void contentsChanged(ListDataEvent e) {
             fireContentsChanged();
         }
@@ -1116,7 +1071,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
             getModel().addListDataListener(this);
         }
 
-        @Override
         public int getSize() {
             return getModel().getFiles().size();
         }
@@ -1134,12 +1088,10 @@ class GTKFileChooserUI extends SynthFileChooserUI {
             return getModel().getFiles().elementAt(index);
         }
 
-        @Override
         public void intervalAdded(ListDataEvent e) {
             fireIntervalAdded(this, e.getIndex0(), e.getIndex1());
         }
 
-        @Override
         public void intervalRemoved(ListDataEvent e) {
             fireIntervalRemoved(this, e.getIndex0(), e.getIndex1());
         }
@@ -1152,7 +1104,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
         }
 
         // PENDING - fire the interval changed
-        @Override
         public void contentsChanged(ListDataEvent e) {
             fireContentsChanged();
         }
@@ -1161,7 +1112,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
 
     @SuppressWarnings("serial") // Superclass is not serializable across versions
     protected class FileCellRenderer extends DefaultListCellRenderer  {
-        @Override
         public Component getListCellRendererComponent(JList<?> list, Object value, int index,
                                                       boolean isSelected, boolean cellHasFocus) {
 
@@ -1179,7 +1129,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
 
     @SuppressWarnings("serial") // Superclass is not serializable across versions
     protected class DirectoryCellRenderer extends DefaultListCellRenderer  {
-        @Override
         public Component getListCellRendererComponent(JList<?> list, Object value, int index,
                                                       boolean isSelected, boolean cellHasFocus) {
 
@@ -1229,7 +1178,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
         c.setAlignmentY(JComponent.TOP_ALIGNMENT);
     }
 
-    @Override
     public Action getNewFolderAction() {
         if (newFolderAction == null) {
             newFolderAction = new NewFolderAction();
@@ -1304,18 +1252,15 @@ class GTKFileChooserUI extends SynthFileChooserUI {
             setSelectedItem(canonical);
         }
 
-        @Override
         public void setSelectedItem(Object selectedDirectory) {
             this.selectedDirectory = (File)selectedDirectory;
             fireContentsChanged(this, -1, -1);
         }
 
-        @Override
         public Object getSelectedItem() {
             return selectedDirectory;
         }
 
-        @Override
         public int getSize() {
             return directories.size();
         }
@@ -1335,7 +1280,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
             super("DirectoryComboBoxAction");
         }
 
-        @Override
         public void actionPerformed(ActionEvent e) {
             File f = (File)directoryComboBox.getSelectedItem();
             getFileChooser().setCurrentDirectory(f);
@@ -1350,7 +1294,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
         protected NewFolderAction() {
             super(FilePane.ACTION_NEW_FOLDER);
         }
-        @Override
         public void actionPerformed(ActionEvent e) {
             if (readOnly) {
                 return;
@@ -1384,7 +1327,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
 
     @SuppressWarnings("serial") // Superclass is not serializable across versions
     private class GTKApproveSelectionAction extends ApproveSelectionAction {
-        @Override
         public void actionPerformed(ActionEvent e) {
             if (isDirectorySelected()) {
                 File dir = getDirectory();
@@ -1420,7 +1362,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
         protected RenameFileAction() {
             super(FilePane.ACTION_EDIT_FILE_NAME);
         }
-        @Override
         public void actionPerformed(ActionEvent e) {
             if (getFileName().isEmpty()) {
                 return;
@@ -1464,7 +1405,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
      */
     @SuppressWarnings("serial") // Superclass is not serializable across versions
     public class FilterComboBoxRenderer extends DefaultListCellRenderer {
-        @Override
         public String getName() {
             // As SynthComboBoxRenderer's are asked for a size BEFORE they
             // are parented getName is overridden to force the name to be
@@ -1477,7 +1417,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
             return name;
         }
 
-        @Override
         public Component getListCellRendererComponent(JList<?> list, Object value,
                                                       int index, boolean isSelected,
                                                       boolean cellHasFocus) {
@@ -1518,7 +1457,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
             filters = getFileChooser().getChoosableFileFilters();
         }
 
-        @Override
         public void propertyChange(PropertyChangeEvent e) {
             String prop = e.getPropertyName();
             if (prop == JFileChooser.CHOOSABLE_FILE_FILTER_CHANGED_PROPERTY) {
@@ -1529,7 +1467,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
             }
         }
 
-        @Override
         public void setSelectedItem(Object filter) {
             if (filter != null) {
                 getFileChooser().setFileFilter((FileFilter) filter);
@@ -1537,7 +1474,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
             }
         }
 
-        @Override
         public Object getSelectedItem() {
             // Ensure that the current filter is in the list.
             // NOTE: we shouldn't have to do this, since JFileChooser adds
@@ -1559,7 +1495,6 @@ class GTKFileChooserUI extends SynthFileChooserUI {
             return getFileChooser().getFileFilter();
         }
 
-        @Override
         public int getSize() {
             if (filters != null) {
                 return filters.length;

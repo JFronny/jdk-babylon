@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020, 2022, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -48,7 +48,7 @@ public class HandshakeDirectTest  implements Runnable {
     static Object[] locks = new Object[WORKING_THREADS];
     static AtomicInteger handshakeCount = new AtomicInteger(0);
 
-    static boolean suspendThread(Thread t) {
+    static void suspendThread(Thread t) {
         try {
             JVMTIUtils.suspendThread(t);
         } catch (JVMTIUtils.JvmtiException e) {
@@ -56,9 +56,7 @@ public class HandshakeDirectTest  implements Runnable {
                 && e.getCode() != JVMTIUtils.JVMTI_ERROR_WRONG_PHASE) {
                 throw e;
             }
-            return false; // failed to suspend
         }
-        return true; // suspended
     }
 
     static void resumeThread(Thread t) {
@@ -117,10 +115,7 @@ public class HandshakeDirectTest  implements Runnable {
             public void run() {
                 while (true) {
                     int i = ThreadLocalRandom.current().nextInt(0, WORKING_THREADS - 1);
-                    boolean suspended = suspendThread(workingThreads[i]);
-                    if (!suspended) {
-                        continue; // skip resumeThread call if thread was not suspended
-                    }
+                    suspendThread(workingThreads[i]);
                     try {
                         Thread.sleep(1); // sleep for 1 ms
                     } catch(InterruptedException ie) {

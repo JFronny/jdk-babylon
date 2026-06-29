@@ -21,7 +21,6 @@ include_directories(
     ${SPIRV_INCLUDE_DIR}
 )
 link_directories(
-        ../shared/target/build
     ${CMAKE_BINARY_DIR}
 )
 

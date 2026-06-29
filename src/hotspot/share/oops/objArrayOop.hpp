@@ -83,9 +83,9 @@ class objArrayOopDesc : public arrayOopDesc {
   Klass* element_klass();
 
 public:
-  // Special iterators for an element index range.
+  // special iterators for index ranges, returns size of object
   template <typename OopClosureType>
-  void oop_iterate_elements_range(OopClosureType* blk, int start, int end);
+  void oop_iterate_range(OopClosureType* blk, int start, int end);
 };
 
 // See similar requirement for oopDesc.

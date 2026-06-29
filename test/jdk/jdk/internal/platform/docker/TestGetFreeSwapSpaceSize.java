@@ -29,11 +29,9 @@
  * @requires container.support
  * @requires !vm.asan
  * @library /test/lib
- * @modules java.base/jdk.internal.platform
  * @build GetFreeSwapSpaceSize
  * @run driver/timeout=480 TestGetFreeSwapSpaceSize
  */
-
 import jdk.test.lib.containers.docker.Common;
 import jdk.test.lib.containers.docker.DockerRunOptions;
 import jdk.test.lib.containers.docker.DockerTestUtils;
@@ -43,8 +41,10 @@ public class TestGetFreeSwapSpaceSize {
     private static final String imageName = Common.imageName("osbeanSwapSpace");
 
     public static void main(String[] args) throws Exception {
-        DockerTestUtils.checkCanTestDocker();
-        DockerTestUtils.checkCanUseResourceLimits();
+        if (!DockerTestUtils.canTestDocker()) {
+            return;
+        }
+
         DockerTestUtils.buildJdkContainerImage(imageName);
 
         try {
@@ -53,7 +53,9 @@ public class TestGetFreeSwapSpaceSize {
                 "150M", Integer.toString(0)
             );
         } finally {
-            DockerTestUtils.removeDockerImage(imageName);
+            if (!DockerTestUtils.RETAIN_IMAGE_AFTER_TEST) {
+                DockerTestUtils.removeDockerImage(imageName);
+            }
         }
     }
 

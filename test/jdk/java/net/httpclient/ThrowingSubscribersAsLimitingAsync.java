@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -35,17 +35,15 @@
  *        ReferenceTracker
  *        jdk.httpclient.test.lib.common.HttpServerAdapters
  *        jdk.test.lib.net.SimpleSSLContext
- * @run junit/othervm -Djdk.internal.httpclient.debug=true ${test.main.class}
+ * @run testng/othervm -Djdk.internal.httpclient.debug=true ThrowingSubscribersAsLimitingAsync
  */
 
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.testng.annotations.Test;
 
 public class ThrowingSubscribersAsLimitingAsync extends ThrowingSubscribersAsLimiting {
 
     @Override
-    @ParameterizedTest
-    @MethodSource("variants")
+    @Test(dataProvider = "variants")
     public void test(String uri, boolean sameClient, Thrower thrower) throws Exception {
         test(uri, sameClient, thrower, true);
     }

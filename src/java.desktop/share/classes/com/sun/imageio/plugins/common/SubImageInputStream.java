@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2017, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -43,7 +43,6 @@ public final class SubImageInputStream extends ImageInputStreamImpl {
         this.startingLength = this.length = length;
     }
 
-    @Override
     public int read() throws IOException {
         if (length == 0) { // Local EOF
             return -1;
@@ -53,7 +52,6 @@ public final class SubImageInputStream extends ImageInputStreamImpl {
         }
     }
 
-    @Override
     public int read(byte[] b, int off, int len) throws IOException {
         if (length == 0) { // Local EOF
             return -1;
@@ -65,12 +63,10 @@ public final class SubImageInputStream extends ImageInputStreamImpl {
         return bytes;
     }
 
-    @Override
     public long length() {
         return startingLength;
     }
 
-    @Override
     public void seek(long pos) throws IOException {
         stream.seek(pos - startingPos);
         streamPos = pos;

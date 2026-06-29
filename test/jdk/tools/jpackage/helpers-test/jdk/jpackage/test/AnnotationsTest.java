@@ -353,12 +353,12 @@ public class AnnotationsTest extends JUnitAdapter {
         try {
             log = captureJPackageTestLog(() -> Main.main(TestBuilder.build().workDirRoot(workDir), args));
             assertRecordedTestDescs(expectedTestDescs);
-        } catch (Exception ex) {
-            ex.printStackTrace(System.err);
+        } catch (Throwable t) {
+            t.printStackTrace(System.err);
             System.exit(1);
 
             // Redundant, but needed to suppress "The local variable log may not have been initialized" error.
-            throw new RuntimeException(ex);
+            throw new RuntimeException(t);
         }
 
         final var actualTestCount = Integer.parseInt(log.stream().dropWhile(line -> {

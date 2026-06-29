@@ -311,20 +311,20 @@ class PlainHttpConnection extends HttpConnection {
             var connectTimerEvent = this.connectTimerEvent;
             if (connectTimerEvent != null)
                 client().cancelTimer(connectTimerEvent);
-        } finally {
-            stateLock.unlock();
-        }
-        if (Log.channel()) {
-            Log.logChannel("Closing channel: " + chan);
-        }
-        try {
-            tube.signalClosed(errorRef.get());
-            chan.close();
+            if (Log.channel()) {
+                Log.logChannel("Closing channel: " + chan);
+            }
+            try {
+                tube.signalClosed(errorRef.get());
+                chan.close();
+            } finally {
+                client().connectionClosed(this);
+            }
         } catch (IOException e) {
             debug.log("Closing resulted in " + e);
             Log.logTrace("Closing resulted in " + e);
         } finally {
-            client().connectionClosed(this);
+            stateLock.unlock();
         }
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -321,11 +321,7 @@ final class DigestAuthentication extends AuthenticationInfo {
      */
     @Override
     public String getHeaderValue(URL url, String method) {
-        try {
-            return getHeaderValueImpl(url.getFile(), method);
-        } catch (IOException _) {
-            return null;
-        }
+        return getHeaderValueImpl(url.getFile(), method);
     }
 
     /**
@@ -343,11 +339,7 @@ final class DigestAuthentication extends AuthenticationInfo {
      * @return the value of the HTTP header this authentication wants set
      */
     String getHeaderValue(String requestURI, String method) {
-        try {
-            return getHeaderValueImpl(requestURI, method);
-        } catch (IOException _) {
-            return null;
-        }
+        return getHeaderValueImpl(requestURI, method);
     }
 
     /**
@@ -377,11 +369,10 @@ final class DigestAuthentication extends AuthenticationInfo {
      * @param conn The connection to apply the header(s) to
      * @param p A source of header values for this connection, if needed.
      * @param raw Raw header values for this connection, if needed.
-     * @throws IOException if no headers were set
+     * @return true if all goes well, false if no headers were set.
      */
     @Override
-    public void setHeaders(HttpURLConnection conn, HeaderParser p, String raw)
-            throws IOException {
+    public boolean setHeaders(HttpURLConnection conn, HeaderParser p, String raw) {
         // no need to synchronize here:
         //   already locked by s.n.w.p.h.HttpURLConnection
         assert conn.isLockHeldByCurrentThread();
@@ -389,14 +380,14 @@ final class DigestAuthentication extends AuthenticationInfo {
         params.setNonce (p.findValue("nonce"));
         params.setOpaque (p.findValue("opaque"));
         params.setQop (p.findValue("qop"));
-        params.setUserhash (Boolean.parseBoolean(p.findValue("userhash")));
+        params.setUserhash (Boolean.valueOf(p.findValue("userhash")));
         String charset = p.findValue("charset");
         if (charset == null) {
             charset = "ISO_8859_1";
         } else if (!charset.equalsIgnoreCase("UTF-8")) {
             // UTF-8 is only valid value. ISO_8859_1 represents default behavior
             // when the parameter is not set.
-            throw new IOException("Illegal charset in header");
+            return false;
         }
         params.setCharset(charset.toUpperCase(Locale.ROOT));
 
@@ -414,7 +405,7 @@ final class DigestAuthentication extends AuthenticationInfo {
         }
 
         if (params.nonce == null || authMethod == null || pw == null || realm == null) {
-            throw new IOException("Server challenge incomplete");
+            return false;
         }
         if (authMethod.length() >= 1) {
             // Method seems to get converted to all lower case elsewhere.
@@ -424,7 +415,8 @@ final class DigestAuthentication extends AuthenticationInfo {
                         + authMethod.substring(1).toLowerCase(Locale.ROOT);
         }
 
-        setAlgorithmNames(p, params);
+        if (!setAlgorithmNames(p, params))
+            return false;
 
         // If authQop is true, then the server is doing RFC2617 and
         // has offered qop=auth. We do not support any other modes
@@ -434,17 +426,20 @@ final class DigestAuthentication extends AuthenticationInfo {
             params.setNewCnonce();
         }
 
-        String value = getHeaderValueImpl(uri, method);
-        assert value != null;
-        conn.setAuthenticationProperty(getHeaderName(), value);
+        String value = getHeaderValueImpl (uri, method);
+        if (value != null) {
+            conn.setAuthenticationProperty(getHeaderName(), value);
+            return true;
+        } else {
+            return false;
+        }
     }
 
     // Algorithm name is stored in two separate fields (of Paramaeters)
     // This allows for variations in digest algorithm name (aliases)
     // and also allow for the -sess variant defined in HTTP Digest protocol
-    // throws IOException if algorithm not supported
-    private static void setAlgorithmNames(HeaderParser p, Parameters params)
-            throws IOException {
+    // returns false if algorithm not supported
+    private static boolean setAlgorithmNames(HeaderParser p, Parameters params) {
         String algorithm = p.findValue("algorithm");
         String digestName = algorithm;
         if (algorithm == null || algorithm.isEmpty()) {
@@ -464,17 +459,18 @@ final class DigestAuthentication extends AuthenticationInfo {
         var oid = KnownOIDs.findMatch(digestName);
         if (oid == null) {
             log("unknown algorithm: " + algorithm);
-            throw new IOException("Unknown algorithm: " + algorithm);
+            return false;
         }
         digestName = oid.stdName();
         params.setAlgorithm (algorithm);
         params.setDigestName (digestName);
+        return true;
     }
 
     /* Calculate the Authorization header field given the request URI
      * and based on the authorization information in params
      */
-    private String getHeaderValueImpl (String uri, String method) throws IOException {
+    private String getHeaderValueImpl (String uri, String method) {
         String response;
         char[] passwd = pw.getPassword();
         boolean qop = params.authQop();
@@ -483,7 +479,11 @@ final class DigestAuthentication extends AuthenticationInfo {
         String nonce = params.getNonce ();
         String algorithm = params.getAlgorithm ();
         String digest = params.getDigestName ();
-        validateDigest(digest);
+        try {
+            validateDigest(digest);
+        } catch (IOException e) {
+            return null;
+        }
         Charset charset = params.getCharset();
         boolean userhash = params.getUserhash ();
         params.incrementNC ();
@@ -505,7 +505,7 @@ final class DigestAuthentication extends AuthenticationInfo {
                                         digest, session, charset);
         } catch (CharacterCodingException | NoSuchAlgorithmException ex) {
             log(ex.getMessage());
-            throw new IOException("Failed to compute digest", ex);
+            return null;
         }
 
         String ncfield = "\"";
@@ -534,7 +534,7 @@ final class DigestAuthentication extends AuthenticationInfo {
             }
         } catch (CharacterCodingException | NoSuchAlgorithmException ex) {
             log(ex.getMessage());
-            throw new IOException("Failed to compute user hash", ex);
+            return null;
         }
 
         String value = authMethod

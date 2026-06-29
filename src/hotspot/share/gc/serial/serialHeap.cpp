@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2017, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -70,7 +70,6 @@
 #include "runtime/init.hpp"
 #include "runtime/java.hpp"
 #include "runtime/mutexLocker.hpp"
-#include "runtime/prefetch.inline.hpp"
 #include "runtime/threads.hpp"
 #include "runtime/vmThread.hpp"
 #include "services/memoryManager.hpp"
@@ -80,6 +79,9 @@
 #include "utilities/macros.hpp"
 #include "utilities/stack.inline.hpp"
 #include "utilities/vmError.hpp"
+#if INCLUDE_JVMCI
+#include "jvmci/jvmci.hpp"
+#endif
 
 SerialHeap* SerialHeap::heap() {
   return named_heap<SerialHeap>(CollectedHeap::Serial);
@@ -89,16 +91,14 @@ SerialHeap::SerialHeap() :
     CollectedHeap(),
     _young_gen(nullptr),
     _old_gen(nullptr),
-    _young_gen_saved_top(nullptr),
-    _old_gen_saved_top(nullptr),
     _rem_set(nullptr),
     _gc_policy_counters(new GCPolicyCounters("Copy:MSC", 2, 2)),
     _young_manager(nullptr),
     _old_manager(nullptr),
+    _is_heap_almost_full(false),
     _eden_pool(nullptr),
     _survivor_pool(nullptr),
-    _old_pool(nullptr),
-    _is_heap_almost_full(false) {
+    _old_pool(nullptr) {
   _young_manager = new GCMemoryManager("Copy");
   _old_manager = new GCMemoryManager("MarkSweepCompact");
   GCLocker::initialize();
@@ -147,8 +147,7 @@ GrowableArray<MemoryPool*> SerialHeap::memory_pools() {
 
 HeapWord* SerialHeap::allocate_loaded_archive_space(size_t word_size) {
   MutexLocker ml(Heap_lock);
-  HeapWord* const addr = old_gen()->allocate(word_size);
-  return addr != nullptr ? addr : old_gen()->expand_and_allocate(word_size);
+  return old_gen()->allocate(word_size);
 }
 
 void SerialHeap::complete_loaded_archive_space(MemRegion archive_space) {
@@ -305,12 +304,9 @@ HeapWord* SerialHeap::mem_allocate_work(size_t size, bool is_tlab) {
   HeapWord* result = nullptr;
 
   for (uint try_count = 1; /* break */; try_count++) {
-    {
-      ConditionalMutexLocker locker(Heap_lock, !is_init_completed());
-      result = mem_allocate_cas_noexpand(size, is_tlab);
-      if (result != nullptr) {
-        break;
-      }
+    result = mem_allocate_cas_noexpand(size, is_tlab);
+    if (result != nullptr) {
+      break;
     }
     uint gc_count_before;  // Read inside the Heap_lock locked region.
     {
@@ -324,15 +320,10 @@ HeapWord* SerialHeap::mem_allocate_work(size_t size, bool is_tlab) {
       }
 
       if (!is_init_completed()) {
-        // Double checked locking, this ensure that is_init_completed() does not
-        // transition while expanding the heap.
-        MonitorLocker ml(InitCompleted_lock, Monitor::_no_safepoint_check_flag);
-        if (!is_init_completed()) {
-          // Can't do GC; try heap expansion to satisfy the request.
-          result = expand_heap_and_allocate(size, is_tlab);
-          if (result != nullptr) {
-            return result;
-          }
+        // Can't do GC; try heap expansion to satisfy the request.
+        result = expand_heap_and_allocate(size, is_tlab);
+        if (result != nullptr) {
+          return result;
         }
       }
 
@@ -391,13 +382,13 @@ bool SerialHeap::do_young_collection(bool clear_soft_refs) {
     Universe::verify("Before GC");
   }
   gc_prologue();
-  COMPILER2_PRESENT(DerivedPointerTable::clear());
+  COMPILER2_OR_JVMCI_PRESENT(DerivedPointerTable::clear());
 
   save_marks();
 
   bool result = _young_gen->collect(clear_soft_refs);
 
-  COMPILER2_PRESENT(DerivedPointerTable::update_pointers());
+  COMPILER2_OR_JVMCI_PRESENT(DerivedPointerTable::update_pointers());
 
   // Only update stats for successful young-gc
   if (result) {
@@ -570,7 +561,7 @@ void SerialHeap::do_full_collection(bool clear_all_soft_refs) {
   }
 
   gc_prologue();
-  COMPILER2_PRESENT(DerivedPointerTable::clear());
+  COMPILER2_OR_JVMCI_PRESENT(DerivedPointerTable::clear());
   CodeCache::on_gc_marking_cycle_start();
 
   STWGCTimer* gc_timer = SerialFullGC::gc_timer();
@@ -590,7 +581,7 @@ void SerialHeap::do_full_collection(bool clear_all_soft_refs) {
   gc_tracer->report_gc_end(gc_timer->gc_end(), gc_timer->time_partitions());
   CodeCache::on_gc_marking_cycle_finish();
   CodeCache::arm_all_nmethods();
-  COMPILER2_PRESENT(DerivedPointerTable::update_pointers());
+  COMPILER2_OR_JVMCI_PRESENT(DerivedPointerTable::update_pointers());
 
   // Adjust generation sizes.
   _old_gen->compute_new_size();
@@ -630,14 +621,6 @@ bool SerialHeap::requires_barriers(stackChunkOop obj) const {
 
 // Returns "TRUE" iff "p" points into the committed areas of the heap.
 bool SerialHeap::is_in(const void* p) const {
-  // precondition
-  verify_not_in_native_if_java_thread();
-
-  if (!is_in_reserved(p)) {
-    // If it's not even in reserved.
-    return false;
-  }
-
   return _young_gen->is_in(p) || _old_gen->is_in(p);
 }
 
@@ -781,9 +764,9 @@ void SerialHeap::gc_prologue() {
 };
 
 void SerialHeap::gc_epilogue(bool full) {
-#ifdef COMPILER2
+#if COMPILER2_OR_JVMCI
   assert(DerivedPointerTable::is_empty(), "derived pointer present");
-#endif // COMPILER2
+#endif // COMPILER2_OR_JVMCI
 
   resize_all_tlabs();
 
@@ -805,12 +788,3 @@ void SerialHeap::gc_epilogue(bool full) {
 
   MetaspaceCounters::update_performance_counters();
 };
-
-#ifdef ASSERT
-void SerialHeap::verify_not_in_native_if_java_thread() {
-  if (Thread::current()->is_Java_thread()) {
-    JavaThread* thread = JavaThread::current();
-    assert(thread->thread_state() != _thread_in_native, "precondition");
-  }
-}
-#endif

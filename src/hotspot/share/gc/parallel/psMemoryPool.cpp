@@ -24,14 +24,14 @@
 
 #include "gc/parallel/psMemoryPool.hpp"
 
-PSOldGenerationPool::PSOldGenerationPool(PSOldGen* old_gen,
-                                         const char* name,
-                                         bool support_usage_threshold) :
+PSGenerationPool::PSGenerationPool(PSOldGen* old_gen,
+                                   const char* name,
+                                   bool support_usage_threshold) :
   CollectedMemoryPool(name, old_gen->capacity_in_bytes(),
                       old_gen->reserved().byte_size(), support_usage_threshold), _old_gen(old_gen) {
 }
 
-MemoryUsage PSOldGenerationPool::get_memory_usage() {
+MemoryUsage PSGenerationPool::get_memory_usage() {
   size_t maxSize   = (available_for_allocation() ? max_size() : 0);
   size_t used      = used_in_bytes();
   size_t committed = _old_gen->capacity_in_bytes();
@@ -39,16 +39,16 @@ MemoryUsage PSOldGenerationPool::get_memory_usage() {
   return MemoryUsage(initial_size(), used, committed, maxSize);
 }
 
-// The max size of PSEdenSpacePool =
+// The max size of EdenMutableSpacePool =
 //     max size of the PSYoungGen - capacity of two survivor spaces
 //
 // Max size of PS eden space is changing due to ergonomic.
 // PSYoungGen, PSOldGen, Eden, Survivor spaces are all resizable.
 //
-PSEdenSpacePool::PSEdenSpacePool(PSYoungGen* young_gen,
-                                 MutableSpace* space,
-                                 const char* name,
-                                 bool support_usage_threshold) :
+EdenMutableSpacePool::EdenMutableSpacePool(PSYoungGen* young_gen,
+                                           MutableSpace* space,
+                                           const char* name,
+                                           bool support_usage_threshold) :
   CollectedMemoryPool(name, space->capacity_in_bytes(),
                       (young_gen->max_gen_size() -
                        young_gen->from_space()->capacity_in_bytes() -
@@ -58,7 +58,7 @@ PSEdenSpacePool::PSEdenSpacePool(PSYoungGen* young_gen,
   _space(space) {
 }
 
-MemoryUsage PSEdenSpacePool::get_memory_usage() {
+MemoryUsage EdenMutableSpacePool::get_memory_usage() {
   size_t maxSize   = (available_for_allocation() ? max_size() : 0);
   size_t used = used_in_bytes();
   size_t committed = _space->capacity_in_bytes();
@@ -66,20 +66,20 @@ MemoryUsage PSEdenSpacePool::get_memory_usage() {
   return MemoryUsage(initial_size(), used, committed, maxSize);
 }
 
-// The max size of PSSurvivorSpacePool =
+// The max size of SurvivorMutableSpacePool =
 //     current capacity of the from-space
 //
 // PS from and to survivor spaces could have different sizes.
 //
-PSSurvivorSpacePool::PSSurvivorSpacePool(PSYoungGen* young_gen,
-                                         const char* name,
-                                         bool support_usage_threshold) :
+SurvivorMutableSpacePool::SurvivorMutableSpacePool(PSYoungGen* young_gen,
+                                                   const char* name,
+                                                   bool support_usage_threshold) :
   CollectedMemoryPool(name, young_gen->from_space()->capacity_in_bytes(),
                       young_gen->from_space()->capacity_in_bytes(),
                       support_usage_threshold), _young_gen(young_gen) {
 }
 
-MemoryUsage PSSurvivorSpacePool::get_memory_usage() {
+MemoryUsage SurvivorMutableSpacePool::get_memory_usage() {
   size_t maxSize = (available_for_allocation() ? max_size() : 0);
   size_t used    = used_in_bytes();
   size_t committed = committed_in_bytes();

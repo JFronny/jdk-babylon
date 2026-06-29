@@ -30,9 +30,7 @@
 
 #ifdef ASSERT
 
-NoSafepointVerifier::NoSafepointVerifier(bool active)
-  : _thread(active ? Thread::current() : nullptr),
-    _active(active) {
+NoSafepointVerifier::NoSafepointVerifier(bool active) : _thread(Thread::current()), _active(active) {
   if (!_active) {
     return;
   }

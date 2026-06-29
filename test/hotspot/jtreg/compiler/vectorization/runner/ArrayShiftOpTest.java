@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2022, 2023, Arm Limited. All rights reserved.
- * Copyright (c) 2024, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2024, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2025, Rivos Inc. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
@@ -80,9 +80,6 @@ public class ArrayShiftOpTest extends VectorizationTestRunner {
         counts = {IRNode.STORE_VECTOR, ">0"})
     @IR(applyIfCPUFeatureOr = {"avx512f", "true", "zvbb", "true"},
         counts = {IRNode.ROTATE_RIGHT_V, ">0"})
-    @IR(applyIfCPUFeature = {"asimd", "true"},
-        applyIf = {"MaxVectorSize", "<= 16"},
-        counts = {IRNode.ROTATE_RIGHT_V, ">0"})
     public int[] intCombinedRotateShift() {
         int[] res = new int[SIZE];
         for (int i = 0; i < SIZE; i++) {
@@ -111,9 +108,6 @@ public class ArrayShiftOpTest extends VectorizationTestRunner {
     @IR(applyIfCPUFeatureOr = {"asimd", "true", "avx2", "true", "rvv", "true"},
         counts = {IRNode.STORE_VECTOR, ">0"})
     @IR(applyIfCPUFeatureOr = {"avx512f", "true", "zvbb", "true"},
-        counts = {IRNode.ROTATE_RIGHT_V, ">0"})
-    @IR(applyIfCPUFeature = {"asimd", "true"},
-        applyIf = {"MaxVectorSize", "<= 16"},
         counts = {IRNode.ROTATE_RIGHT_V, ">0"})
     public long[] longCombinedRotateShift() {
         long[] res = new long[SIZE];
@@ -253,8 +247,9 @@ public class ArrayShiftOpTest extends VectorizationTestRunner {
     }
 
     @Test
-    @IR(applyIfCPUFeature = {"avx", "true"},
-            counts = {IRNode.RSHIFT_VI, ">0"})
+    // Note that right shift operations on subword expressions cannot be
+    // vectorized since precise type info about signedness is missing.
+    @IR(failOn = {IRNode.STORE_VECTOR})
     public short[] subwordExpressionRightShift() {
         short[] res = new short[SIZE];
         for (int i = 0; i < SIZE; i++) {

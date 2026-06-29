@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -24,7 +24,6 @@ package org.openjdk.bench.jdk.internal.jrtfs;
 
 import jdk.internal.jimage.ImageReader;
 import jdk.internal.jimage.ImageReader.Node;
-import jdk.internal.jimage.PreviewMode;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -94,7 +93,7 @@ public class ImageReaderBenchmark {
         @Setup(Level.Trial)
         public void setUp() throws IOException {
             super.setUp();
-            reader = ImageReader.open(copiedImageFile, byteOrder, PreviewMode.DISABLED);
+            reader = ImageReader.open(copiedImageFile, byteOrder);
         }
 
         @TearDown(Level.Trial)
@@ -123,7 +122,7 @@ public class ImageReaderBenchmark {
         @Setup(Level.Iteration)
         public void setup() throws IOException {
             super.setUp();
-            reader = ImageReader.open(copiedImageFile, byteOrder, PreviewMode.DISABLED);
+            reader = ImageReader.open(copiedImageFile, byteOrder);
         }
 
         @TearDown(Level.Iteration)
@@ -150,7 +149,7 @@ public class ImageReaderBenchmark {
     @Benchmark
     @BenchmarkMode(Mode.SingleShotTime)
     public void coldStart_InitAndCount(ColdStart state) throws IOException {
-        try (var reader = ImageReader.open(state.copiedImageFile, state.byteOrder, PreviewMode.DISABLED)) {
+        try (var reader = ImageReader.open(state.copiedImageFile, state.byteOrder)) {
             state.count = countAllNodes(reader, reader.findNode("/"));
         }
     }
@@ -174,7 +173,7 @@ public class ImageReaderBenchmark {
     @BenchmarkMode(Mode.SingleShotTime)
     public void coldStart_LoadJavacInitClasses(Blackhole bh, ColdStart state) throws IOException {
         int errors = 0;
-        try (var reader = ImageReader.open(state.copiedImageFile, state.byteOrder, PreviewMode.DISABLED)) {
+        try (var reader = ImageReader.open(state.copiedImageFile, state.byteOrder)) {
             for (String path : INIT_CLASSES) {
                 // Path determination isn't perfect so there can be a few "misses" in here.
                 // Report the count of bad paths as the "result", which should be < 20 or so.
@@ -211,7 +210,7 @@ public class ImageReaderBenchmark {
     // DO NOT run this before the benchmark, as it will cache all the nodes!
     private static void reportMissingClassesAndFail(ColdStart state, int errors) throws IOException {
         List<String> missing = new ArrayList<>(errors);
-        try (var reader = ImageReader.open(state.copiedImageFile, state.byteOrder, PreviewMode.DISABLED)) {
+        try (var reader = ImageReader.open(state.copiedImageFile, state.byteOrder)) {
             for (String path : INIT_CLASSES) {
                 if (reader.findNode(path) == null) {
                     missing.add(path);
@@ -448,6 +447,7 @@ public class ImageReaderBenchmark {
             "/modules/java.base/jdk/internal/access/JavaLangRefAccess.class",
             "/modules/java.base/java/lang/ref/ReferenceQueue.class",
             "/modules/java.base/java/lang/ref/ReferenceQueue$Null.class",
+            "/modules/java.base/java/lang/ref/ReferenceQueue$Lock.class",
             "/modules/java.base/jdk/internal/access/JavaLangAccess.class",
             "/modules/java.base/jdk/internal/util/SystemProps.class",
             "/modules/java.base/jdk/internal/util/SystemProps$Raw.class",
@@ -1073,5 +1073,6 @@ public class ImageReaderBenchmark {
             "/modules/java.base/java/nio/charset/CoderResult.class",
             "/modules/java.base/java/util/IdentityHashMap$IdentityHashMapIterator.class",
             "/modules/java.base/java/util/IdentityHashMap$KeyIterator.class",
-            "/modules/java.base/java/lang/Shutdown.class");
+            "/modules/java.base/java/lang/Shutdown.class",
+            "/modules/java.base/java/lang/Shutdown$Lock.class");
 }

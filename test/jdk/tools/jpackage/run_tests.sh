@@ -251,7 +251,7 @@ if [ -n "$logfile" ]; then
 fi
 
 if [ -z "$run_all_tests" ]; then
-  jtreg_args+=(-Djpackage.test.SQETest=true)
+  jtreg_args+=(-Djpackage.test.SQETest=yes)
 fi
 
 if [ -n "$APPDATA" ]; then

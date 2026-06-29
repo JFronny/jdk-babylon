@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -35,6 +35,7 @@ import java.net.URL;
 import java.security.GeneralSecurityException;
 import java.util.Base64;
 import java.util.Locale;
+import java.util.Properties;
 
 import sun.net.www.HeaderParser;
 import sun.net.www.protocol.http.AuthenticationInfo;
@@ -202,10 +203,10 @@ public final class NTLMAuthentication extends AuthenticationInfo {
      * @param p A source of header values for this connection, not used because
      *          HeaderParser converts the fields to lower case, use raw instead
      * @param raw The raw header field.
-     * @throws IOException if no headers were set
+     * @return true if all goes well, false if no headers were set.
      */
     @Override
-    public void setHeaders(HttpURLConnection conn, HeaderParser p, String raw) throws IOException {
+    public boolean setHeaders(HttpURLConnection conn, HeaderParser p, String raw) {
         // no need to synchronize here:
         //   already locked by s.n.w.p.h.HttpURLConnection
         assert conn.isLockHeldByCurrentThread();
@@ -219,8 +220,9 @@ public final class NTLMAuthentication extends AuthenticationInfo {
                 response = buildType3Msg (msg);
             }
             conn.setAuthenticationProperty(getHeaderName(), response);
-        } catch (GeneralSecurityException e) {
-            throw new IOException(e);
+            return true;
+        } catch (IOException | GeneralSecurityException e) {
+            return false;
         }
     }
 
@@ -230,7 +232,8 @@ public final class NTLMAuthentication extends AuthenticationInfo {
         return result;
     }
 
-    private String buildType3Msg (String challenge) throws GeneralSecurityException {
+    private String buildType3Msg (String challenge) throws GeneralSecurityException,
+                                                           IOException  {
         /* First decode the type2 message to get the server nonce */
         /* nonce is located at type2[24] for 8 bytes */
 

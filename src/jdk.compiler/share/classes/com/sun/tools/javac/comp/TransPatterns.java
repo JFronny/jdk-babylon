@@ -244,7 +244,16 @@ public class TransPatterns extends TreeTranslator {
                 JCExpression translatedExpr = translate(tree.expr);
                 Symbol exprSym = TreeInfo.symbol(translatedExpr);
 
-                currentValue = generateTempOrReuse(exprSym, tempType);
+                if (exprSym != null &&
+                    exprSym.kind == Kind.VAR &&
+                    exprSym.owner.kind.matches(Kinds.KindSelector.VAL_MTH)) {
+                    currentValue = (VarSymbol) exprSym;
+                } else {
+                    currentValue = new VarSymbol(Flags.FINAL | Flags.SYNTHETIC,
+                            names.fromString("patt" + variableIndex++ + target.syntheticNameChar() + "temp"),
+                            tempType,
+                            currentMethodSym);
+                }
 
                 Type principalType = types.erasure(TreeInfo.primaryPatternType((pattern)));
                 JCExpression resultExpression = (JCExpression) this.<JCTree>translate(pattern);
@@ -272,27 +281,6 @@ public class TransPatterns extends TreeTranslator {
         } else {
             super.visitTypeTest(tree);
         }
-    }
-
-    // Reuse a non-constant local or parameter for the type test expression;
-    // otherwise synthesize a temp, since constant locals may not have bytecode local slots.
-    private VarSymbol generateTempOrReuse(Symbol exprSym, Type tempType) {
-        VarSymbol exprVar = exprSym != null &&
-                exprSym.kind == Kind.VAR &&
-                exprSym.owner.kind.matches(Kinds.KindSelector.VAL_MTH)
-                ? (VarSymbol) exprSym
-                : null;
-        if (exprVar != null && exprVar.getConstValue() == null) {
-            return exprVar;
-        }
-        VarSymbol temp = new VarSymbol(Flags.FINAL | Flags.SYNTHETIC,
-                names.fromString("patt" + variableIndex++ + target.syntheticNameChar() + "temp"),
-                tempType,
-                currentMethodSym);
-        if (exprVar != null) {
-            temp.setData(exprVar.getConstantValue());
-        }
-        return temp;
     }
 
     @Override

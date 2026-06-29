@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -50,7 +50,6 @@ import jdk.javadoc.internal.doclets.toolkit.util.CommentHelper;
 import jdk.javadoc.internal.doclets.toolkit.util.DocLink;
 import jdk.javadoc.internal.doclets.toolkit.util.VisibleMemberTable;
 import jdk.javadoc.internal.html.Content;
-import jdk.javadoc.internal.html.HtmlId;
 import jdk.javadoc.internal.html.HtmlTree;
 import jdk.javadoc.internal.html.Text;
 
@@ -160,10 +159,6 @@ public class LinkTaglet extends BaseTaglet {
                         Optional.of(refSignature));
             }
             refFragment = refFragment.substring(1);
-            if (ref == null && refSignature.startsWith("##")) {
-                // Unqualified local anchor link in doc-file
-                return htmlWriter.links.createLink(HtmlId.of(refFragment), labelContent);
-            }
         }
         if (refClass == null) {
             ModuleElement refModule = ch.getReferencedModule(ref);

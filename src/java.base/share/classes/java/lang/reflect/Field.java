@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1996, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1996, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -367,24 +367,11 @@ class Field extends AccessibleObject implements Member {
      * @jls 8.3.1 Field Modifiers
      */
     public String toString() {
-        return modifierPrefix()
+        int mod = getModifiers();
+        return (((mod == 0) ? "" : (Modifier.toString(mod) + " "))
             + getType().getTypeName() + " "
             + getDeclaringClass().getTypeName() + "."
-            + getName();
-    }
-
-    private String modifierPrefix() {
-        StringBuilder sb = new StringBuilder();
-        Reflection.appendAccessControlModifiers(sb, modifiers);
-        if (Modifier.isStatic(modifiers))
-            sb.append("static ");
-        if (Modifier.isFinal(modifiers))
-            sb.append("final ");
-        if (Modifier.isTransient(modifiers))
-            sb.append("transient ");
-        if (Modifier.isVolatile(modifiers))
-            sb.append("volatile ");
-        return sb.toString();
+            + getName());
     }
 
     @Override
@@ -413,11 +400,12 @@ class Field extends AccessibleObject implements Member {
      * @jls 8.3.1 Field Modifiers
      */
     public String toGenericString() {
+        int mod = getModifiers();
         Type fieldType = getGenericType();
-        return modifierPrefix()
+        return (((mod == 0) ? "" : (Modifier.toString(mod) + " "))
             + fieldType.getTypeName() + " "
             + getDeclaringClass().getTypeName() + "."
-            + getName();
+            + getName());
     }
 
     /**
@@ -1549,7 +1537,8 @@ class Field extends AccessibleObject implements Member {
             VM.initialErr().println(sb);
         }
 
-        FinalFieldMutationEvent.offer(root);
+        // record JFR event
+        FinalFieldMutationEvent.offer(getDeclaringClass(), getName());
     }
 
     /**

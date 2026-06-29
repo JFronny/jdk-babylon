@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -45,7 +45,6 @@ import java.lang.ref.SoftReference;
 import java.text.ListFormat;
 import java.text.MessageFormat;
 import java.text.NumberFormat;
-import java.time.format.FormatStyle;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.HashMap;
@@ -63,6 +62,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import jdk.internal.util.StaticProperty;
 import sun.util.resources.LocaleData;
 import sun.util.resources.OpenListResourceBundle;
 import sun.util.resources.TimeZoneNamesBundle;
@@ -106,9 +106,6 @@ public class LocaleResources {
     // TimeZoneNamesBundle exemplar city prefix
     private static final String TZNB_EXCITY_PREFIX = "timezone.excity.";
 
-    // TimeZoneNamesBundle explicit metazone dst offset prefix
-    private static final String TZNB_METAZONE_DSTOFFSET_PREFIX = "metazone.dstoffset.";
-
     // null singleton cache value
     private static final Object NULLOBJECT = new Object();
 
@@ -131,12 +128,11 @@ public class LocaleResources {
 
     // Input Skeleton map for "preferred" and "allowed"
     // Map<"preferred"/"allowed", Map<"region", "skeleton">>
-    private static final LazyConstant<Map<String, Map<String, String>>> INPUT_SKELETONS =
-        LazyConstant.of(LocaleResources::initSkeletons);
+    private static Map<String, Map<String, String>> inputSkeletons;
 
     // Skeletons for "j" and "C" input skeleton symbols for this locale
-    private final LazyConstant<String> jPattern = LazyConstant.of(() -> resolveInputSkeleton("preferred"));
-    private final LazyConstant<String> CPattern = LazyConstant.of(this::initCPattern);
+    private String jPattern;
+    private String CPattern;
 
     LocaleResources(ResourceBundleBasedAdapter adapter, Locale locale) {
         this.locale = locale;
@@ -292,6 +288,16 @@ public class LocaleResources {
     }
 
     public String getLocaleName(String key) {
+        // Get names for old ISO codes with new ISO code resources
+        if (StaticProperty.javaLocaleUseOldISOCodes().equalsIgnoreCase("true")) {
+            key = switch (key) {
+                case "iw" -> "he";
+                case "in" -> "id";
+                case "ji" -> "yi";
+                default -> key;
+            };
+        }
+
         Object localeName = null;
         String cacheKey = LOCALE_NAMES + key;
 
@@ -326,8 +332,7 @@ public class LocaleResources {
 
         if (Objects.isNull(data) || Objects.isNull(val = data.get())) {
             TimeZoneNamesBundle tznb = localeData.getTimeZoneNames(locale);
-            if (key.startsWith(TZNB_EXCITY_PREFIX) ||
-                key.startsWith(TZNB_METAZONE_DSTOFFSET_PREFIX)) {
+            if (key.startsWith(TZNB_EXCITY_PREFIX)) {
                 if (tznb.containsKey(key)) {
                     val = tznb.getString(key);
                     assert val instanceof String;
@@ -384,8 +389,7 @@ public class LocaleResources {
         Set<String[]> value = new LinkedHashSet<>();
         Set<String> tzIds = new HashSet<>(Arrays.asList(TimeZone.getAvailableIDs()));
         for (String key : keyset) {
-            if (!key.startsWith(TZNB_EXCITY_PREFIX) &&
-                !key.startsWith(TZNB_METAZONE_DSTOFFSET_PREFIX)) {
+            if (!key.startsWith(TZNB_EXCITY_PREFIX)) {
                 value.add(rb.getStringArray(key));
                 tzIds.remove(key);
             }
@@ -464,21 +468,19 @@ public class LocaleResources {
 
     /**
      * Returns a date-time format pattern
-     * @param dateStyle style of time; one of FULL, LONG, MEDIUM, SHORT in FormatStyle,
-     *                  or null if not required
-     * @param timeStyle style of time; one of FULL, LONG, MEDIUM, SHORT in FormatStyle,
-     *                  or null if not required
+     * @param timeStyle style of time; one of FULL, LONG, MEDIUM, SHORT in DateFormat,
+     *                  or -1 if not required
+     * @param dateStyle style of time; one of FULL, LONG, MEDIUM, SHORT in DateFormat,
+     *                  or -1 if not required
      * @param calType   the calendar type for the pattern
      * @return the pattern string
      */
-    public String getDateTimeFormatterPattern(FormatStyle dateStyle, FormatStyle timeStyle, String calType) {
+    public String getJavaTimeDateTimePattern(int timeStyle, int dateStyle, String calType) {
         calType = CalendarDataUtility.normalizeCalendarType(calType);
         String pattern;
-        int ts = timeStyle != null ? timeStyle.ordinal() : -1;
-        int ds = dateStyle != null ? dateStyle.ordinal() : -1;
-        pattern = getDateTimePattern("java.time.", ts, ds, calType);
+        pattern = getDateTimePattern("java.time.", timeStyle, dateStyle, calType);
         if (pattern == null) {
-            pattern = getDateTimePattern(null, ts, ds, calType);
+            pattern = getDateTimePattern(null, timeStyle, dateStyle, calType);
         }
         return pattern;
     }
@@ -608,6 +610,8 @@ public class LocaleResources {
     }
 
     private String getLocalizedPatternImpl(String requestedTemplate, String calType) {
+        initSkeletonIfNeeded();
+
         // input skeleton substitution
         var skeleton = substituteInputSkeletons(requestedTemplate);
 
@@ -656,14 +660,12 @@ public class LocaleResources {
             .orElse(null);
     }
 
-    private static Map<String, Map<String, String>> initSkeletons() {
+    private void initSkeletonIfNeeded() {
         // "preferred"/"allowed" input skeleton maps
-        var inputSkeletons = new HashMap<String, Map<String, String>>();
-        Pattern p = Pattern.compile("([^:]+):([^;]+);");
-
-        // CLDR is guaranteed to implement ResourceBundleBasedAdapter
-        if (LocaleProviderAdapter.forType(LocaleProviderAdapter.Type.CLDR) instanceof ResourceBundleBasedAdapter rbba) {
-            var r = rbba.getLocaleData().getDateFormatData(Locale.ROOT);
+        if (inputSkeletons == null) {
+            inputSkeletons = new HashMap<>();
+            Pattern p = Pattern.compile("([^:]+):([^;]+);");
+            ResourceBundle r = localeData.getDateFormatData(Locale.ROOT);
             Stream.of("preferred", "allowed").forEach(type -> {
                 var inputRegionsKey = SKELETON_INPUT_REGIONS_KEY + "." + type;
                 Map<String, String> typeMap = new HashMap<>();
@@ -677,17 +679,19 @@ public class LocaleResources {
                 inputSkeletons.put(type, typeMap);
             });
         }
-        return inputSkeletons;
-    }
 
-    private String initCPattern() {
-        // C patterns for this locale
-        var cp = resolveInputSkeleton("allowed");
-        // hack: "allowed" contains reversed order for hour/period, e.g, "hB" which should be "Bh" as a skeleton
-        if (cp.length() == 2) {
-            cp = "" + cp.charAt(1) + cp.charAt(0);
+        // j/C patterns for this locale
+        if (jPattern == null) {
+            jPattern = resolveInputSkeleton("preferred");
+            CPattern = resolveInputSkeleton("allowed");
+            // hack: "allowed" contains reversed order for hour/period, e.g, "hB" which should be "Bh" as a skeleton
+            if (CPattern.length() == 2) {
+                var ba = new byte[2];
+                ba[0] = (byte)CPattern.charAt(1);
+                ba[1] = (byte)CPattern.charAt(0);
+                CPattern = new String(ba);
+            }
         }
-        return cp;
     }
 
     /**
@@ -697,22 +701,11 @@ public class LocaleResources {
      * @return resolved skeletons for this locale, defaults to "h" if none found.
      */
     private String resolveInputSkeleton(String type) {
-        var regionToSkeletonMap = INPUT_SKELETONS.get().get(type);
-
-        if (regionToSkeletonMap != null) {
-            for (var region: new String[] {
-                locale.getLanguage() + "-" + locale.getCountry(),
-                locale.getCountry(),
-                locale.getLanguage() + "-001",
-                "001"}) {
-                var hour = regionToSkeletonMap.get(region);
-                if (hour != null) {
-                    return hour;
-                }
-            }
-        }
-
-        return "h";
+        var regionToSkeletonMap = inputSkeletons.get(type);
+        return regionToSkeletonMap.getOrDefault(locale.getLanguage() + "-" + locale.getCountry(),
+            regionToSkeletonMap.getOrDefault(locale.getCountry(),
+                regionToSkeletonMap.getOrDefault(locale.getLanguage() + "-001",
+                    regionToSkeletonMap.getOrDefault("001", "h"))));
     }
 
     /**
@@ -724,8 +717,8 @@ public class LocaleResources {
      */
     private String substituteInputSkeletons(String requestedTemplate) {
         var cCount = requestedTemplate.chars().filter(c -> c == 'C').count();
-        return requestedTemplate.replaceAll("j", jPattern.get())
-                .replaceFirst("C+", CPattern.get().replaceAll("([hkHK])", "$1".repeat((int)cCount)));
+        return requestedTemplate.replaceAll("j", jPattern)
+                .replaceFirst("C+", CPattern.replaceAll("([hkHK])", "$1".repeat((int)cCount)));
     }
 
     /**

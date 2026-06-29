@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -34,6 +34,7 @@ class ClassLoaderData;
 
 class ObjArrayKlass : public ArrayKlass {
   friend class Deoptimization;
+  friend class JVMCIVMStructs;
   friend class oopFactory;
   friend class VMStructs;
 
@@ -71,29 +72,29 @@ class ObjArrayKlass : public ArrayKlass {
   void set_bottom_klass(Klass* k)   { _bottom_klass = k; }
   Klass** bottom_klass_addr()       { return &_bottom_klass; }
 
-  ModuleEntry* module() const override;
-  PackageEntry* package() const override;
+  ModuleEntry* module() const;
+  PackageEntry* package() const;
 
   // Dispatched operation
-  bool can_be_primary_super_slow() const override;
+  bool can_be_primary_super_slow() const;
   GrowableArray<Klass*>* compute_secondary_supers(int num_extra_slots,
-                                                  Array<InstanceKlass*>* transitive_interfaces) override;
-  DEBUG_ONLY(bool is_objArray_klass_slow() const override { return true; })
-  size_t oop_size(oop obj) const override;
+                                                  Array<InstanceKlass*>* transitive_interfaces);
+  DEBUG_ONLY(bool is_objArray_klass_slow()  const  { return true; })
+  size_t oop_size(oop obj) const;
 
   // Allocation
   static ObjArrayKlass* allocate_objArray_klass(ClassLoaderData* loader_data,
                                                 int n, Klass* element_klass, TRAPS);
 
-  oop multi_allocate(int rank, jint* sizes, TRAPS) override;
+  oop multi_allocate(int rank, jint* sizes, TRAPS);
 
   // Copying
-  void copy_array(arrayOop s, int src_pos, arrayOop d, int dst_pos, int length, TRAPS) override;
+  void  copy_array(arrayOop s, int src_pos, arrayOop d, int dst_pos, int length, TRAPS);
 
   // Compute protection domain
-  oop protection_domain() const override { return bottom_klass()->protection_domain(); }
+  oop protection_domain() const { return bottom_klass()->protection_domain(); }
 
-  virtual void metaspace_pointers_do(MetaspaceClosure* iter) override;
+  virtual void metaspace_pointers_do(MetaspaceClosure* iter);
 
  private:
   // Either oop or narrowOop depending on UseCompressedOops.
@@ -113,10 +114,10 @@ class ObjArrayKlass : public ArrayKlass {
 
   // Sizing
   static int header_size()                { return sizeof(ObjArrayKlass)/wordSize; }
-  int size() const override               { return ArrayKlass::static_size(header_size()); }
+  int size() const                        { return ArrayKlass::static_size(header_size()); }
 
   // Initialization (virtual from Klass)
-  void initialize(TRAPS) override;
+  void initialize(TRAPS);
 
   // Oop fields (and metadata) iterators
   //
@@ -134,38 +135,39 @@ class ObjArrayKlass : public ArrayKlass {
   template <typename T, typename OopClosureType>
   inline void oop_oop_iterate_bounded(oop obj, OopClosureType* closure, MemRegion mr);
 
-  // Iterate over all oop elements, and no metadata.
+  // Iterate over oop elements within [start, end), and metadata.
+  template <typename T, class OopClosureType>
+  inline void oop_oop_iterate_range(objArrayOop a, OopClosureType* closure, int start, int end);
+
+ public:
+  // Iterate over all oop elements.
   template <typename T, class OopClosureType>
   inline void oop_oop_iterate_elements(objArrayOop a, OopClosureType* closure);
 
-  // Iterate over oop elements within index range [start, end), and no metadata.
-  template <typename T, class OopClosureType>
-  inline void oop_oop_iterate_elements_range(objArrayOop a, OopClosureType* closure, int start, int end);
-
  private:
-  // Iterate over all oop elements bounded by addresses [low, high), and no metadata.
+  // Iterate over all oop elements with indices within mr.
   template <typename T, class OopClosureType>
   inline void oop_oop_iterate_elements_bounded(objArrayOop a, OopClosureType* closure, void* low, void* high);
 
  public:
-  u2 compute_modifier_flags() const override;
+  u2 compute_modifier_flags() const;
 
  public:
   // Printing
-  void print_on(outputStream* st) const override;
-  void print_value_on(outputStream* st) const override;
+  void print_on(outputStream* st) const;
+  void print_value_on(outputStream* st) const;
 
-  void oop_print_value_on(oop obj, outputStream* st) override;
+  void oop_print_value_on(oop obj, outputStream* st);
 #ifndef PRODUCT
-  void oop_print_on      (oop obj, outputStream* st) override;
+  void oop_print_on      (oop obj, outputStream* st);
 #endif //PRODUCT
 
-  const char* internal_name() const override;
+  const char* internal_name() const;
 
   // Verification
-  void verify_on(outputStream* st) override;
+  void verify_on(outputStream* st);
 
-  void oop_verify_on(oop obj, outputStream* st) override;
+  void oop_verify_on(oop obj, outputStream* st);
 };
 
 #endif // SHARE_OOPS_OBJARRAYKLASS_HPP

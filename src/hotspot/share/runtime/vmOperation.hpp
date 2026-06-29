@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -90,11 +90,12 @@
   template(ShenandoahFinalMarkStartEvac)          \
   template(ShenandoahInitUpdateRefs)              \
   template(ShenandoahFinalUpdateRefs)             \
-  template(ShenandoahFinalVerify)                 \
+  template(ShenandoahFinalRoots)                  \
   template(ShenandoahDegeneratedGC)               \
   template(Exit)                                  \
   template(LinuxDllLoad)                          \
   template(WhiteBoxOperation)                     \
+  template(JVMCIResizeCounters)                   \
   template(ClassLoaderStatsOperation)             \
   template(ClassLoaderHierarchyOperation)         \
   template(DumpHashtable)                         \
@@ -109,8 +110,9 @@
   template(GTestStopSafepoint)                    \
   template(JFROldObject)                          \
   template(RendezvousGCThreads)                   \
-  template(JFRInitializeCPUTimeSampler)           \
-  template(JFRTerminateCPUTimeSampler)            \
+  template(JFRInitializeCPUTimeSampler)       \
+  template(JFRTerminateCPUTimeSampler)        \
+  template(ReinitializeMDO)
 
 class Thread;
 class outputStream;

@@ -59,7 +59,10 @@ public class TestMemoryAwareness {
     }
 
     public static void main(String[] args) throws Exception {
-        DockerTestUtils.checkCanTestDocker();
+        if (!DockerTestUtils.canTestDocker()) {
+            return;
+        }
+
         Common.prepareWhiteBox();
         DockerTestUtils.buildJdkContainerImage(imageName);
 
@@ -102,7 +105,9 @@ public class TestMemoryAwareness {
             testMetricsSwapExceedingPhysical();
             testContainerMemExceedsPhysical();
         } finally {
-            DockerTestUtils.removeDockerImage(imageName);
+            if (!DockerTestUtils.RETAIN_IMAGE_AFTER_TEST) {
+                DockerTestUtils.removeDockerImage(imageName);
+            }
         }
     }
 
@@ -167,11 +172,11 @@ public class TestMemoryAwareness {
         opts.addDockerOpts("--memory-swap=" + swapToSet);
 
         Common.run(opts)
-            .shouldMatch("memory_limit:.*" + expectedMem)
-            .shouldNotMatch("memory_and_swap_limit:.*not supported")
+            .shouldMatch("memory_limit_in_bytes:.*" + expectedMem)
+            .shouldNotMatch("memory_and_swap_limit_in_bytes:.*not supported")
             // On systems with swapaccount=0 this returns the memory limit.
             // On systems with swapaccount=1 this returns the set memory+swap value.
-            .shouldMatch("memory_and_swap_limit:.*(" + expectedMem + "|" + expectedSwap + ")");
+            .shouldMatch("memory_and_swap_limit_in_bytes:.*(" + expectedMem + "|" + expectedSwap + ")");
     }
 
     /*

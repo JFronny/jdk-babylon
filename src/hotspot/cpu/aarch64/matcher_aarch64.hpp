@@ -141,10 +141,8 @@
   }
 
   // Does the CPU supports vector constant rotate instructions?
-  // NEON supports constant rotates via USHR+SLI (2-instruction sequence).
-  // The shift value will be masked to the element width in the .ad rule.
   static constexpr bool supports_vector_constant_rotates(int shift) {
-    return true;
+    return false;
   }
 
   // Does the CPU supports vector unsigned comparison instructions?

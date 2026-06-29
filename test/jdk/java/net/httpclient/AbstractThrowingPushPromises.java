@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2018, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -22,7 +22,7 @@
  */
 
 
-/*
+/**
  * This is not a test. Actual tests are implemented by concrete subclasses.
  * The abstract class AbstractThrowingPushPromises provides a base framework
  * to test what happens when push promise handlers and their
@@ -35,10 +35,18 @@
  *        ReferenceTracker AbstractThrowingPushPromises
  *        jdk.httpclient.test.lib.common.HttpServerAdapters
  *        <concrete-class-name>
- * @run junit/othervm -Djdk.internal.httpclient.debug=true <concrete-class-name>
+ * @run testng/othervm -Djdk.internal.httpclient.debug=true <concrete-class-name>
  */
 
 import jdk.test.lib.net.SimpleSSLContext;
+import org.testng.ITestContext;
+import org.testng.ITestResult;
+import org.testng.SkipException;
+import org.testng.annotations.AfterTest;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeTest;
+import org.testng.annotations.DataProvider;
 
 import javax.net.ssl.SSLContext;
 import java.io.BufferedReader;
@@ -62,6 +70,7 @@ import java.net.http.HttpResponse.BodySubscriber;
 import java.net.http.HttpResponse.PushPromiseHandler;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -91,30 +100,21 @@ import static java.net.http.HttpClient.Version.HTTP_3;
 import static java.net.http.HttpOption.Http3DiscoveryMode.HTTP_3_URI_ONLY;
 import static java.net.http.HttpOption.H3_DISCOVERY;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import org.junit.jupiter.api.AfterAll;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.extension.BeforeEachCallback;
-import org.junit.jupiter.api.extension.ExtensionContext;
-import org.junit.jupiter.api.extension.RegisterExtension;
-import org.junit.jupiter.api.extension.TestWatcher;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractThrowingPushPromises implements HttpServerAdapters {
 
-    private static final SSLContext sslContext = SimpleSSLContext.findSSLContext();
-    static HttpTestServer http2TestServer;   // HTTP/2 ( h2c )
-    static HttpTestServer https2TestServer;  // HTTP/2 ( h2  )
-    static HttpTestServer http3TestServer;   // HTTP/3 ( h3  )
-    static String http2URI_fixed;
-    static String http2URI_chunk;
-    static String https2URI_fixed;
-    static String https2URI_chunk;
-    static String http3URI_fixed;
-    static String http3URI_chunk;
+    SSLContext sslContext;
+    HttpTestServer http2TestServer;   // HTTP/2 ( h2c )
+    HttpTestServer https2TestServer;  // HTTP/2 ( h2  )
+    HttpTestServer http3TestServer;   // HTTP/3 ( h3  )
+    String http2URI_fixed;
+    String http2URI_chunk;
+    String https2URI_fixed;
+    String https2URI_chunk;
+    String http3URI_fixed;
+    String http3URI_chunk;
 
     static final int ITERATION_COUNT = 1;
     // a shared executor helps reduce the amount of threads created by the test
@@ -132,34 +132,8 @@ public abstract class AbstractThrowingPushPromises implements HttpServerAdapters
         return String.format("[%d s, %d ms, %d ns] ", secs, mill, nan);
     }
 
-    static final class TestStopper implements TestWatcher, BeforeEachCallback {
-        final AtomicReference<String> failed = new AtomicReference<>();
-        TestStopper() { }
-        @Override
-        public void testFailed(ExtensionContext context, Throwable cause) {
-            if (stopAfterFirstFailure()) {
-                String msg = "Aborting due to: " + cause;
-                failed.compareAndSet(null, msg);
-                FAILURES.putIfAbsent(context.getDisplayName(), cause);
-                System.out.printf("%nTEST FAILED: %s%s%n\tAborting due to %s%n%n",
-                        now(), context.getDisplayName(), cause);
-                System.err.printf("%nTEST FAILED: %s%s%n\tAborting due to %s%n%n",
-                        now(), context.getDisplayName(), cause);
-            }
-        }
-
-        @Override
-        public void beforeEach(ExtensionContext context) {
-            String msg = failed.get();
-            Assumptions.assumeTrue(msg == null, msg);
-        }
-    }
-
-    @RegisterExtension
-    static final TestStopper stopper = new TestStopper();
-
-    static final ReferenceTracker TRACKER = ReferenceTracker.INSTANCE;
-    private static volatile HttpClient sharedClient;
+    final ReferenceTracker TRACKER = ReferenceTracker.INSTANCE;
+    private volatile HttpClient sharedClient;
 
     static class TestExecutor implements Executor {
         final AtomicLong tasks = new AtomicLong();
@@ -185,15 +159,41 @@ public abstract class AbstractThrowingPushPromises implements HttpServerAdapters
         }
     }
 
-    protected static boolean stopAfterFirstFailure() {
+    protected boolean stopAfterFirstFailure() {
         return Boolean.getBoolean("jdk.internal.httpclient.debug");
     }
 
+    final AtomicReference<SkipException> skiptests = new AtomicReference<>();
+    void checkSkip() {
+        var skip = skiptests.get();
+        if (skip != null) throw skip;
+    }
+    static String name(ITestResult result) {
+        var params = result.getParameters();
+        return result.getName()
+                + (params == null ? "()" : Arrays.toString(result.getParameters()));
+    }
 
-    @AfterAll
-    static void printFailedTests() {
+    @BeforeMethod
+    void beforeMethod(ITestContext context) {
+        if (stopAfterFirstFailure() && context.getFailedTests().size() > 0) {
+            if (skiptests.get() == null) {
+                SkipException skip = new SkipException("some tests failed");
+                skip.setStackTrace(new StackTraceElement[0]);
+                skiptests.compareAndSet(null, skip);
+            }
+        }
+    }
+
+    @AfterClass
+    static final void printFailedTests(ITestContext context) {
         out.println("\n=========================");
         try {
+            // Exceptions should already have been added to FAILURES
+            // var failed = context.getFailedTests().getAllResults().stream()
+            //        .collect(Collectors.toMap(r -> name(r), ITestResult::getThrowable));
+            // FAILURES.putAll(failed);
+
             out.printf("%n%sCreated %d servers and %d clients%n",
                     now(), serverCount.get(), clientCount.get());
             if (FAILURES.isEmpty()) return;
@@ -211,7 +211,7 @@ public abstract class AbstractThrowingPushPromises implements HttpServerAdapters
         }
     }
 
-    private static String[] uris() {
+    private String[] uris() {
         return new String[] {
                 http3URI_fixed,
                 http3URI_chunk,
@@ -222,7 +222,8 @@ public abstract class AbstractThrowingPushPromises implements HttpServerAdapters
         };
     }
 
-    public static Object[][] sanity() {
+    @DataProvider(name = "sanity")
+    public Object[][] sanity() {
         String[] uris = uris();
         Object[][] result = new Object[uris.length * 2][];
 
@@ -251,7 +252,7 @@ public abstract class AbstractThrowingPushPromises implements HttpServerAdapters
         }
     }
 
-    private static Object[][] variants(List<Thrower> throwers) {
+    private Object[][] variants(List<Thrower> throwers) {
         String[] uris = uris();
         // reduce traces by always using the same client if
         // stopAfterFirstFailure is requested.
@@ -271,19 +272,27 @@ public abstract class AbstractThrowingPushPromises implements HttpServerAdapters
         return result;
     }
 
-    public static Object[][] ioVariants() {
+    @DataProvider(name = "ioVariants")
+    public Object[][] ioVariants(ITestContext context) {
+        if (stopAfterFirstFailure() && context.getFailedTests().size() > 0) {
+            return new Object[0][];
+        }
         return variants(List.of(
                 new UncheckedIOExceptionThrower()));
     }
 
-    public static Object[][] customVariants() {
+    @DataProvider(name = "customVariants")
+    public Object[][] customVariants(ITestContext context) {
+        if (stopAfterFirstFailure() && context.getFailedTests().size() > 0) {
+            return new Object[0][];
+        }
         return variants(List.of(
                 new UncheckedCustomExceptionThrower()));
     }
 
-    private static HttpClient makeNewClient() {
+    private HttpClient makeNewClient() {
         clientCount.incrementAndGet();
-        return TRACKER.track(HttpServerAdapters.createClientBuilderForH3()
+        return TRACKER.track(newClientBuilderForH3()
                 .version(HTTP_3)
                 .proxy(HttpClient.Builder.NO_PROXY)
                 .executor(executor)
@@ -291,11 +300,11 @@ public abstract class AbstractThrowingPushPromises implements HttpServerAdapters
                 .build());
     }
 
-    static HttpClient newHttpClient(boolean share) {
+    HttpClient newHttpClient(boolean share) {
         if (!share) return makeNewClient();
         HttpClient shared = sharedClient;
         if (shared != null) return shared;
-        synchronized (AbstractThrowingPushPromises.class) {
+        synchronized (this) {
             shared = sharedClient;
             if (shared == null) {
                 shared = sharedClient = makeNewClient();
@@ -304,15 +313,15 @@ public abstract class AbstractThrowingPushPromises implements HttpServerAdapters
         }
     }
 
-    static Http3DiscoveryMode config(String uri) {
+    Http3DiscoveryMode config(String uri) {
         return uri.contains("/http3/") ? HTTP_3_URI_ONLY : null;
     }
 
-    static Version version(String uri) {
+    Version version(String uri) {
         return uri.contains("/http3/") ? HTTP_3 : HTTP_2;
     }
 
-    static HttpRequest request(String uri) {
+    HttpRequest request(String uri) {
         var builder = HttpRequest.newBuilder(URI.create(uri))
                 .version(version(uri));
         var config = config(uri);
@@ -332,7 +341,7 @@ public abstract class AbstractThrowingPushPromises implements HttpServerAdapters
             HttpRequest req = request(uri);
 
             BodyHandler<Stream<String>> handler =
-                    new ThrowingBodyHandler<>((w) -> {},
+                    new ThrowingBodyHandler((w) -> {},
                                             BodyHandlers.ofLines());
             Map<HttpRequest, CompletableFuture<HttpResponse<Stream<String>>>> pushPromises =
                     new ConcurrentHashMap<>();
@@ -349,15 +358,15 @@ public abstract class AbstractThrowingPushPromises implements HttpServerAdapters
             HttpResponse<Stream<String>> response =
                     client.sendAsync(req, BodyHandlers.ofLines(), pushHandler).get();
             String body = response.body().collect(Collectors.joining("|"));
-            assertEquals(URI.create(uri).getPath(), URI.create(body).getPath());
+            assertEquals(URI.create(body).getPath(), URI.create(uri).getPath());
             for (HttpRequest promised : pushPromises.keySet()) {
                 out.printf("%s Received promise: %s%n\tresponse: %s%n",
                         now(), promised, pushPromises.get(promised).get());
                 String promisedBody = pushPromises.get(promised).get().body()
                         .collect(Collectors.joining("|"));
-                assertEquals(promised.uri().toASCIIString(), promisedBody);
+                assertEquals(promisedBody, promised.uri().toASCIIString());
             }
-            assertEquals(3, pushPromises.size());
+            assertEquals(pushPromises.size(), 3);
             if (!sameClient) {
                 // Wait for the client to be garbage collected.
                 // we use the ReferenceTracker API rather than HttpClient::close here,
@@ -380,9 +389,9 @@ public abstract class AbstractThrowingPushPromises implements HttpServerAdapters
     }
 
     // @Test(dataProvider = "variants")
-    void testThrowingAsStringImpl(String uri,
-                                  boolean sameClient,
-                                  Thrower thrower)
+    protected void testThrowingAsStringImpl(String uri,
+                                     boolean sameClient,
+                                     Thrower thrower)
             throws Exception
     {
         String test = format("testThrowingAsString(%s, %b, %s)",
@@ -392,7 +401,7 @@ public abstract class AbstractThrowingPushPromises implements HttpServerAdapters
     }
 
     //@Test(dataProvider = "variants")
-    void testThrowingAsLinesImpl(String uri,
+    protected void testThrowingAsLinesImpl(String uri,
                                     boolean sameClient,
                                     Thrower thrower)
             throws Exception
@@ -404,9 +413,9 @@ public abstract class AbstractThrowingPushPromises implements HttpServerAdapters
     }
 
     //@Test(dataProvider = "variants")
-    void testThrowingAsInputStreamImpl(String uri,
-                                       boolean sameClient,
-                                       Thrower thrower)
+    protected void testThrowingAsInputStreamImpl(String uri,
+                                          boolean sameClient,
+                                          Thrower thrower)
             throws Exception
     {
         String test = format("testThrowingAsInputStream(%s, %b, %s)",
@@ -417,9 +426,10 @@ public abstract class AbstractThrowingPushPromises implements HttpServerAdapters
 
     private <T,U> void testThrowing(String name, String uri, boolean sameClient,
                                     Supplier<BodyHandler<T>> handlers,
-                                    Finisher<T,U> finisher, Thrower thrower)
+                                    Finisher finisher, Thrower thrower)
             throws Exception
     {
+        checkSkip();
         out.printf("%n%s%s%n", now(), name);
         try {
             testThrowing(uri, sameClient, handlers, finisher, thrower);
@@ -431,7 +441,7 @@ public abstract class AbstractThrowingPushPromises implements HttpServerAdapters
 
     private <T,U> void testThrowing(String uri, boolean sameClient,
                                     Supplier<BodyHandler<T>> handlers,
-                                    Finisher<T,U> finisher, Thrower thrower)
+                                    Finisher finisher, Thrower thrower)
             throws Exception
     {
         HttpClient client = null;
@@ -445,7 +455,7 @@ public abstract class AbstractThrowingPushPromises implements HttpServerAdapters
             ConcurrentMap<HttpRequest, CompletableFuture<HttpResponse<T>>> promiseMap =
                     new ConcurrentHashMap<>();
             Supplier<BodyHandler<T>> throwing = () ->
-                    new ThrowingBodyHandler<>(where.select(thrower), handlers.get());
+                    new ThrowingBodyHandler(where.select(thrower), handlers.get());
             PushPromiseHandler<T> pushHandler = new ThrowingPromiseHandler<>(
                     where.select(thrower),
                     PushPromiseHandler.of((r) -> throwing.get(), promiseMap));
@@ -533,7 +543,7 @@ public abstract class AbstractThrowingPushPromises implements HttpServerAdapters
         return check(w, reqURI, resp, thrower, promises, extractor);
     }
 
-    private <T> List<String> check(Where w, URI reqURI,
+    private final <T> List<String> check(Where w, URI reqURI,
                                  HttpResponse<T> resp,
                                  Thrower thrower,
                                  Map<HttpRequest, CompletableFuture<HttpResponse<T>>> promises,
@@ -593,9 +603,9 @@ public abstract class AbstractThrowingPushPromises implements HttpServerAdapters
             default:
                 expectedCount = 3;
         }
-        assertEquals(expectedCount, promises.size(),
+        assertEquals(promises.size(), expectedCount,
                 "bad promise count for " + reqURI + " with " + w);
-        assertEquals(List.of(reqURI.toASCIIString()), result);
+        assertEquals(result, List.of(reqURI.toASCIIString()));
         return result;
     }
 
@@ -690,7 +700,7 @@ public abstract class AbstractThrowingPushPromises implements HttpServerAdapters
         public BodySubscriber<T> apply(HttpResponse.ResponseInfo rinfo) {
             throwing.accept(Where.BODY_HANDLER);
             BodySubscriber<T> subscriber = bodyHandler.apply(rinfo);
-            return new ThrowingBodySubscriber<>(throwing, subscriber);
+            return new ThrowingBodySubscriber(throwing, subscriber);
         }
     }
 
@@ -748,8 +758,12 @@ public abstract class AbstractThrowingPushPromises implements HttpServerAdapters
     }
 
 
-    @BeforeAll
-    public static void setup() throws Exception {
+    @BeforeTest
+    public void setup() throws Exception {
+        sslContext = new SimpleSSLContext().get();
+        if (sslContext == null)
+            throw new AssertionError("Unexpected null sslContext");
+
         // HTTP/2
         HttpTestHandler fixedLengthHandler = new HTTP_FixedLengthHandler();
         HttpTestHandler chunkedHandler = new HTTP_ChunkedHandler();
@@ -778,8 +792,8 @@ public abstract class AbstractThrowingPushPromises implements HttpServerAdapters
         http3TestServer.start();
     }
 
-    @AfterAll
-    public static void teardown() throws Exception {
+    @AfterTest
+    public void teardown() throws Exception {
         String sharedClientName =
                 sharedClient == null ? null : sharedClient.toString();
         sharedClient = null;

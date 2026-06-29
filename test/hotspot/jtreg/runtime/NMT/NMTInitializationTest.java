@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2021 SAP SE. All rights reserved.
- * Copyright (c) 2021, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2023, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -45,7 +45,6 @@
 /**
  * @test id=normal-off
  * @bug 8256844
- * @key randomness
  * @library /test/lib
  * @modules java.base/jdk.internal.misc
  *          java.management
@@ -55,7 +54,6 @@
 /**
  * @test id=normal-detail
  * @bug 8256844
- * @key randomness
  * @library /test/lib
  * @modules java.base/jdk.internal.misc
  *          java.management
@@ -65,7 +63,6 @@
 /**
  * @test id=default_long-off
  * @bug 8256844
- * @key randomness
  * @library /test/lib
  * @modules java.base/jdk.internal.misc
  *          java.management
@@ -75,7 +72,6 @@
 /**
  * @test id=default_long-detail
  * @bug 8256844
- * @key randomness
  * @library /test/lib
  * @modules java.base/jdk.internal.misc
  *          java.management
@@ -91,7 +87,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Random;
-import jdk.test.lib.Utils;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -100,7 +95,7 @@ public class NMTInitializationTest {
     final static boolean debug = true;
 
     static String randomString() {
-        Random r = Utils.getRandomInstance();
+        Random r = new Random();
         int len = r.nextInt(100) + 100;
         StringBuilder bld = new StringBuilder();
         for (int i = 0; i < len; i ++) {

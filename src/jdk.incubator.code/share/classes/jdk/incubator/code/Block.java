@@ -476,10 +476,6 @@ public final class Block implements CodeElement<Block, Op> {
      * A block builder builds one block as part of the <a href="Body.Builder.html#body-building-process">building process</a>
      * of building its parent body. The block is not <a href="Body.Builder.html#body-building-observability">observable</a>
      * until the parent body builder <a href="Body.Builder.html#body-building-finishing">finishes</a>.
-     * After <a href="Body.Builder.html#body-building-finishing">building finishes</a>,
-     * the block becomes observable, and the block builder becomes inoperable,
-     * regardless of whether building succeeds or fails with an exception.
-     * Further attempts to operate on the block builder throws an {@link IllegalStateException}.
      * <p>
      * A block builder has a code {@link #context() context} and code {@link #transformer() transformer}. These are used
      * to perform <i>transform-on-append</i> when {@link #add appending} a placed operation. Any sibling block builder
@@ -510,7 +506,6 @@ public final class Block implements CodeElement<Block, Op> {
         }
 
         Block target() {
-            check();
             return Block.this;
         }
 
@@ -518,7 +513,6 @@ public final class Block implements CodeElement<Block, Op> {
          * {@return this block builder's code transformer}
          */
         public CodeTransformer transformer() {
-            check();
             return ct;
         }
 
@@ -526,7 +520,6 @@ public final class Block implements CodeElement<Block, Op> {
          * {@return this block builder's code context}
          */
         public CodeContext context() {
-            check();
             return cc;
         }
 
@@ -534,7 +527,6 @@ public final class Block implements CodeElement<Block, Op> {
          * {@return this block builder's parent body builder}
          */
         public Body.Builder parentBody() {
-            check();
             return parentBody;
         }
 
@@ -546,7 +538,6 @@ public final class Block implements CodeElement<Block, Op> {
          * @return the entry block builder of this builder's parent body builder
          */
         public Block.Builder entryBlock() {
-            check();
             return parentBody.entryBlock.withContextAndTransformer(cc, ct);
         }
 
@@ -554,7 +545,6 @@ public final class Block implements CodeElement<Block, Op> {
          * {@return true if this block builder builds the entry block of its parent body}
          */
         public boolean isEntryBlock() {
-            check();
             return Block.this == parentBody.target().entryBlock();
         }
 
@@ -570,7 +560,6 @@ public final class Block implements CodeElement<Block, Op> {
          * @return the block builder with the given code context and code transformer
          */
         public Block.Builder withContextAndTransformer(CodeContext cc, CodeTransformer ct) {
-            check();
             return this.cc == cc && this.ct == ct
                     ? this
                     : this.target().new Builder(parentBody(), cc, ct);
@@ -599,7 +588,6 @@ public final class Block implements CodeElement<Block, Op> {
          * @return the new block builder
          */
         public Block.Builder block(List<CodeType> params) {
-            check();
             return parentBody.block(params, cc, ct);
         }
 
@@ -609,7 +597,6 @@ public final class Block implements CodeElement<Block, Op> {
          * @return the unmodifiable list of this block's parameters
          */
         public List<Parameter> parameters() {
-            check();
             return Collections.unmodifiableList(parameters);
         }
 
@@ -649,8 +636,6 @@ public final class Block implements CodeElement<Block, Op> {
          * @throws IllegalArgumentException if any argument's declaring block is built.
          */
         public Reference reference(List<? extends Value> args) {
-            check();
-
             if (isEntryBlock()) {
                 throw new IllegalStateException("Entry block cannot be referenced and targeted as a successor");
             }
@@ -796,14 +781,12 @@ public final class Block implements CodeElement<Block, Op> {
          */
         @Override
         public boolean equals(Object o) {
-            check();
             if (this == o) return true;
             return o instanceof Builder that && Block.this == that.target();
         }
 
         @Override
         public int hashCode() {
-            check();
             return Block.this.hashCode();
         }
     }

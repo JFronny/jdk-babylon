@@ -90,9 +90,9 @@ void ShenandoahGC::update_roots(bool full_gc) {
                                     ShenandoahPhaseTimings::degen_gc_update_roots;
 
   ShenandoahGCPhase phase(p);
-#ifdef COMPILER2
+#if COMPILER2_OR_JVMCI
   DerivedPointerTable::clear();
-#endif // COMPILER2
+#endif
 
   ShenandoahHeap* const heap = ShenandoahHeap::heap();
   WorkerThreads* workers = heap->workers();
@@ -102,7 +102,7 @@ void ShenandoahGC::update_roots(bool full_gc) {
   ShenandoahUpdateRootsTask update_roots(&root_updater, check_alive);
   workers->run_task(&update_roots);
 
-#ifdef COMPILER2
+#if COMPILER2_OR_JVMCI
   DerivedPointerTable::update_pointers();
-#endif // COMPILER2
+#endif
 }

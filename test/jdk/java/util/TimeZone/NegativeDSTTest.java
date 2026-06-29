@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -21,7 +21,7 @@
  * questions.
  */
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.testng.Assert.assertEquals;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -31,19 +31,18 @@ import java.time.ZoneId;
 import java.util.Date;
 import java.util.TimeZone;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.testng.annotations.Test;
+import org.testng.annotations.DataProvider;
+import static org.testng.Assert.assertEquals;
 
 /**
  * @test
  * @bug 8212970 8324065
  * @summary Test whether the savings are positive in time zones that have
  *      negative savings in the source TZ files.
- * @run junit NegativeDSTTest
+ * @run testng NegativeDSTTest
  */
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@Test
 public class NegativeDSTTest {
 
     private static final TimeZone DUBLIN = TimeZone.getTimeZone("Europe/Dublin");
@@ -52,6 +51,7 @@ public class NegativeDSTTest {
     private static final TimeZone CASABLANCA = TimeZone.getTimeZone("Africa/Casablanca");
     private static final int ONE_HOUR = 3600_000;
 
+    @DataProvider
     private Object[][] negativeDST () {
         return new Object[][] {
             // TimeZone, localDate, offset, isDaylightSavings
@@ -88,11 +88,10 @@ public class NegativeDSTTest {
         };
     }
 
-    @ParameterizedTest
-    @MethodSource("negativeDST")
+    @Test(dataProvider="negativeDST")
     public void test_NegativeDST(TimeZone tz, LocalDate ld, int offset, boolean isDST) {
         Date d = Date.from(Instant.from(ZonedDateTime.of(ld, LocalTime.MIN, tz.toZoneId())));
-        assertEquals(offset, tz.getOffset(d.getTime()));
-        assertEquals(isDST, tz.inDaylightTime(d));
+        assertEquals(tz.getOffset(d.getTime()), offset);
+        assertEquals(tz.inDaylightTime(d), isDST);
     }
 }

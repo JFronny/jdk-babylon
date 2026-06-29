@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -29,11 +29,13 @@ import java.awt.Toolkit;
 import java.awt.Window;
 import java.awt.AWTEvent;
 import sun.awt.SunToolkit;
+import sun.awt.AppContext;
 import sun.awt.UngrabEvent;
 
 /**
  * This class provides static utility methods to be used by FX swing interop
- * to access and use jdk internal classes like SunToolkit and UngrabEvent.
+ * to access and use jdk internal classes like SunToolkit, AppContext
+ * and UngrabEvent.
  *
  * @since 11
  */
@@ -45,7 +47,10 @@ public class SwingInterOpUtils {
     public SwingInterOpUtils() {}
 
     public static void postEvent(Object target, java.awt.AWTEvent e) {
-        SunToolkit.postEvent(e);
+        AppContext context = SunToolkit.targetToAppContext(target);
+        if (context != null) {
+            SunToolkit.postEvent(context, e);
+        }
     }
 
     public static void grab(Toolkit toolkit, Window window) {

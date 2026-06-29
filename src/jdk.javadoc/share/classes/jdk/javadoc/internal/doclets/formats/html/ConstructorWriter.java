@@ -119,7 +119,9 @@ public class ConstructorWriter extends AbstractExecutableMemberWriter {
                 constructorContent.add(div);
                 memberList.add(getMemberListItem(constructorContent));
                 writer.tableOfContents.addLink(htmlIds.forMember(currentConstructor).getFirst(),
-                        getTOCLabel(currentConstructor), TableOfContents.Level.SECOND);
+                        Text.of(utils.getSimpleName(constructor)
+                                + utils.makeSignature(currentConstructor, typeElement, false, true)),
+                        TableOfContents.Level.SECOND);
             }
             Content constructorDetails = getConstructorDetails(constructorDetailsHeader, memberList);
             target.add(constructorDetails);

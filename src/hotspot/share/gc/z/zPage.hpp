@@ -52,7 +52,6 @@ private:
   ZLiveMap                      _livemap;
   ZRememberedSet                _remembered_set;
   ZMultiPartitionTracker* const _multi_partition_tracker;
-  volatile bool                 _relocate_promoted;
 
   const char* type_to_string() const;
 
@@ -103,9 +102,6 @@ public:
   ZMultiPartitionTracker* multi_partition_tracker() const;
 
   ZPageAge age() const;
-
-  bool allows_raw_null() const;
-  void set_is_relocate_promoted();
 
   uint32_t seqnum() const;
   bool is_allocating() const;

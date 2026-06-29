@@ -115,7 +115,7 @@ case "$OS" in
       TMP=`cd "${SystemRoot}/Temp"; echo ${PWD}`
       ;;
 
-   CYGWIN* | MSYS* | MINGW* )
+   CYGWIN* )
       FILESEP="/"
       PATHSEP=";"
       TMP="/tmp"
@@ -243,7 +243,7 @@ echo
 
 
 case "$OS" in
-   CYGWIN* | MSYS* | MINGW* )
+   CYGWIN* )
       TEST_CODEBASE=$(cygpath -m ${PWD})
       TEST_PLUGIN_JAR=$(cygpath -m ${PLUGINDST_DIR}${FILESEP}${TEST_PLUGIN})
       ;;

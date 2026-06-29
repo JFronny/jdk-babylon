@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -345,7 +345,9 @@ void ConstantDoubleValue::print_on(outputStream* st) const {
 void ConstantOopWriteValue::write_on(DebugInfoWriteStream* stream) {
 #ifdef ASSERT
   {
-    ThreadInVMfromNative tiv(JavaThread::current());
+    // cannot use ThreadInVMfromNative here since in case of JVMCI compiler,
+    // thread is already in VM state.
+    ThreadInVMfromUnknown tiv;
     assert(JNIHandles::resolve(value()) == nullptr ||
            Universe::heap()->is_in(JNIHandles::resolve(value())),
            "Should be in heap");
@@ -356,7 +358,9 @@ void ConstantOopWriteValue::write_on(DebugInfoWriteStream* stream) {
 }
 
 void ConstantOopWriteValue::print_on(outputStream* st) const {
-  ThreadInVMfromNative tiv(JavaThread::current());
+  // using ThreadInVMfromUnknown here since in case of JVMCI compiler,
+  // thread is already in VM state.
+  ThreadInVMfromUnknown tiv;
   JNIHandles::resolve(value())->print_value_on(st);
 }
 

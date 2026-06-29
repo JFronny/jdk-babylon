@@ -27,7 +27,7 @@
  * @summary Test for jdk.calendar.japanese.supplemental.era support
  * @library /test/lib
  * @build SupplementalJapaneseEraTest
- * @run junit/othervm SupplementalJapaneseEraTestRun
+ * @run testng/othervm SupplementalJapaneseEraTestRun
  */
 
 import java.util.Calendar;
@@ -45,12 +45,11 @@ import static java.util.Calendar.YEAR;
 import jdk.test.lib.process.ProcessTools;
 import jdk.test.lib.Utils;
 
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
 
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class SupplementalJapaneseEraTestRun {
+    @DataProvider(name = "validprop")
     Object[][] validPropertyData() {
         return new Object[][] {
                 //Tests with valid property values
@@ -59,6 +58,7 @@ public class SupplementalJapaneseEraTestRun {
         };
     }
 
+    @DataProvider(name = "invalidprop")
     Object[][] invalidPropertyData() {
         return new Object[][] {
                 //Tests with invalid property values
@@ -76,8 +76,7 @@ public class SupplementalJapaneseEraTestRun {
         };
     }
 
-    @ParameterizedTest
-    @MethodSource("validPropertyData")
+    @Test(dataProvider = "validprop")
     public void ValidPropertyValuesTest(String prop)
             throws Throwable {
         //get the start time of the fictional next era
@@ -85,8 +84,7 @@ public class SupplementalJapaneseEraTestRun {
         testRun(prop + startTime, List.of("-t"));
     }
 
-    @ParameterizedTest
-    @MethodSource("invalidPropertyData")
+    @Test(dataProvider = "invalidprop")
     public void InvalidPropertyValuesTest(String prop)
             throws Throwable {
         //get the start time of the fictional next era

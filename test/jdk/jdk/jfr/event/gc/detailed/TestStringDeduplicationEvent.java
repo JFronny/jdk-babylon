@@ -22,6 +22,7 @@
  */
 package jdk.jfr.event.gc.detailed;
 
+import java.lang.reflect.Field;
 import java.lang.management.ManagementFactory;
 import java.lang.management.GarbageCollectorMXBean;
 import java.util.List;
@@ -122,8 +123,16 @@ import jdk.test.whitebox.WhiteBox;
  */
 
 public class TestStringDeduplicationEvent {
-    static volatile String string;
-    static volatile String duplicateString;
+    private static Field valueField;
+
+    static {
+        try {
+            valueField = String.class.getDeclaredField("value");
+            valueField.setAccessible(true);
+        } catch (Exception exception) {
+            throw new RuntimeException(exception);
+        }
+    }
 
     public static void main(String[] args) throws Exception {
         boolean zgc = isZgc();
@@ -133,8 +142,9 @@ public class TestStringDeduplicationEvent {
             recording.onEvent(EventNames.StringDeduplication, e -> recording.close());
             recording.startAsync();
 
-            string = TestStringDeduplicationEvent.class.getSimpleName();
-            duplicateString = new StringBuilder(string).toString();
+            String base = TestStringDeduplicationEvent.class.getSimpleName();
+            String duplicate = new StringBuilder(base).toString();
+            assert(getValue(base) != getValue(duplicate));
 
             if (zgc) {
                 // ZGC only triggers string deduplications from major collections
@@ -144,6 +154,14 @@ public class TestStringDeduplicationEvent {
             }
 
             recording.awaitTermination();
+        }
+    }
+
+    private static Object getValue(String string) {
+        try {
+            return valueField.get(string);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 

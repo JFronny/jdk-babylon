@@ -1,4 +1,4 @@
-//   Copyright Naoki Shibata and contributors 2010 - 2025.
+//   Copyright Naoki Shibata and contributors 2010 - 2021.
 // Distributed under the Boost Software License, Version 1.0.
 //    (See accompanying file LICENSE.txt or copy at
 //          http://www.boost.org/LICENSE_1_0.txt)
@@ -97,14 +97,10 @@ int check_cf(int n) {
   int i;
 
   real *sx = (real *)Sleef_malloc(n*2 * sizeof(real));
+  real *sy = (real *)Sleef_malloc(n*2 * sizeof(real));
 
   cmpl *ts = (cmpl *)malloc(sizeof(cmpl)*n);
   cmpl *fs = (cmpl *)malloc(sizeof(cmpl)*n);
-
-  if (!sx || !ts || !fs) {
-    fprintf(stderr, "Memory allocation failed");
-    exit(-1);
-  }
 
   //
 
@@ -125,17 +121,25 @@ int check_cf(int n) {
     return 0;
   }
 
-  SleefDFT_execute(p, sx, sx);
+  SleefDFT_execute(p, sx, sy);
 
   //
 
   int success = 1;
+  double rmsn = 0, rmsd = 0;
 
   for(i=0;i<n;i++) {
-    if ((fabs(sx[(i*2+0)] - creal(fs[i])) > THRES) ||
-        (fabs(sx[(i*2+1)] - cimag(fs[i])) > THRES)) {
+    if ((fabs(sy[(i*2+0)] - creal(fs[i])) > THRES) ||
+        (fabs(sy[(i*2+1)] - cimag(fs[i])) > THRES)) {
       success = 0;
     }
+
+    double t;
+    t = (sy[(i*2+0)] - creal(fs[i]));
+    rmsn += t*t;
+    t = (sy[(i*2+1)] - cimag(fs[i]));
+    rmsn += t*t;
+    rmsd += creal(fs[i]) * creal(fs[i]) + cimag(fs[i]) * cimag(fs[i]);
   }
 
   //
@@ -144,6 +148,7 @@ int check_cf(int n) {
   free(ts);
 
   Sleef_free(sx);
+  Sleef_free(sy);
   SleefDFT_dispose(p);
 
   //
@@ -156,14 +161,10 @@ int check_cb(int n) {
   int i;
 
   real *sx = (real *)Sleef_malloc(sizeof(real)*n*2);
+  real *sy = (real *)Sleef_malloc(sizeof(real)*n*2);
 
   cmpl *ts = (cmpl *)malloc(sizeof(cmpl)*n);
   cmpl *fs = (cmpl *)malloc(sizeof(cmpl)*n);
-
-  if (!sx || !ts || !fs) {
-    fprintf(stderr, "Memory allocation failed");
-    exit(-1);
-  }
 
   //
 
@@ -182,15 +183,15 @@ int check_cb(int n) {
     return 0;
   }
 
-  SleefDFT_execute(p, sx, sx);
+  SleefDFT_execute(p, sx, sy);
 
   //
 
   int success = 1;
 
   for(i=0;i<n;i++) {
-    if ((fabs(sx[(i*2+0)] - creal(ts[i])) > THRES) ||
-        (fabs(sx[(i*2+1)] - cimag(ts[i])) > THRES)) {
+    if ((fabs(sy[(i*2+0)] - creal(ts[i])) > THRES) ||
+        (fabs(sy[(i*2+1)] - cimag(ts[i])) > THRES)) {
       success = 0;
     }
   }
@@ -201,6 +202,7 @@ int check_cb(int n) {
   free(ts);
 
   Sleef_free(sx);
+  Sleef_free(sy);
   SleefDFT_dispose(p);
 
   //
@@ -212,15 +214,11 @@ int check_cb(int n) {
 int check_rf(int n) {
   int i;
 
-  real *sx = (real *)Sleef_malloc((n+2) * sizeof(real));
+  real *sx = (real *)Sleef_malloc(n * sizeof(real));
+  real *sy = (real *)Sleef_malloc((n/2+1)*sizeof(real)*2);
 
   cmpl *ts = (cmpl *)malloc(sizeof(cmpl)*n);
   cmpl *fs = (cmpl *)malloc(sizeof(cmpl)*n);
-
-  if (!sx || !ts || !fs) {
-    fprintf(stderr, "Memory allocation failed");
-    exit(-1);
-  }
 
   //
 
@@ -228,8 +226,6 @@ int check_rf(int n) {
     ts[i] = (2.0 * (rand() / (double)RAND_MAX) - 1);
     sx[i] = creal(ts[i]);
   }
-
-  sx[n] = sx[n+1] = 0;
 
   //
 
@@ -242,15 +238,15 @@ int check_rf(int n) {
     return 0;
   }
 
-  SleefDFT_execute(p, sx, sx);
+  SleefDFT_execute(p, sx, sy);
 
   //
 
   int success = 1;
 
   for(i=0;i<n/2+1;i++) {
-    if (fabs(sx[(2*i+0)] - creal(fs[i])) > THRES) success = 0;
-    if (fabs(sx[(2*i+1)] - cimag(fs[i])) > THRES) success = 0;
+    if (fabs(sy[(2*i+0)] - creal(fs[i])) > THRES) success = 0;
+    if (fabs(sy[(2*i+1)] - cimag(fs[i])) > THRES) success = 0;
   }
 
   //
@@ -259,6 +255,7 @@ int check_rf(int n) {
   free(ts);
 
   Sleef_free(sx);
+  Sleef_free(sy);
   SleefDFT_dispose(p);
 
   //
@@ -273,11 +270,6 @@ int check_rb(int n) {
   cmpl *ts = (cmpl *)malloc(sizeof(cmpl)*n);
   cmpl *fs = (cmpl *)malloc(sizeof(cmpl)*n);
 
-  if (!ts || !fs) {
-    fprintf(stderr, "Memory allocation failed");
-    exit(-1);
-  }
-
   //
 
   for(i=0;i<n/2;i++) {
@@ -291,11 +283,7 @@ int check_rb(int n) {
   }
 
   real *sx = (real *)Sleef_malloc((n/2+1) * sizeof(real)*2);
-
-  if (!sx) {
-    fprintf(stderr, "Memory allocation failed");
-    exit(-1);
-  }
+  real *sy = (real *)Sleef_malloc(sizeof(real)*n);
 
   for(i=0;i<n/2+1;i++) {
     sx[2*i+0] = creal(fs[i]);
@@ -313,7 +301,7 @@ int check_rb(int n) {
     return 0;
   }
 
-  SleefDFT_execute(p, sx, sx);
+  SleefDFT_execute(p, sx, sy);
 
   //
 
@@ -324,7 +312,7 @@ int check_rb(int n) {
       success = 0;
     }
 
-    if ((fabs(sx[i] - creal(ts[i])) > THRES)) {
+    if ((fabs(sy[i] - creal(ts[i])) > THRES)) {
       success = 0;
     }
   }
@@ -335,6 +323,7 @@ int check_rb(int n) {
   free(ts);
 
   Sleef_free(sx);
+  Sleef_free(sy);
   SleefDFT_dispose(p);
 
   //
@@ -346,14 +335,10 @@ int check_arf(int n) {
   int i;
 
   real *sx = (real *)Sleef_malloc(n * sizeof(real));
+  real *sy = (real *)Sleef_malloc(n * sizeof(real));
 
   cmpl *ts = (cmpl *)malloc(sizeof(cmpl)*n);
   cmpl *fs = (cmpl *)malloc(sizeof(cmpl)*n);
-
-  if (!sx || !ts || !fs) {
-    fprintf(stderr, "Memory allocation failed");
-    exit(-1);
-  }
 
   //
 
@@ -373,7 +358,7 @@ int check_arf(int n) {
     return 0;
   }
 
-  SleefDFT_execute(p, sx, sx);
+  SleefDFT_execute(p, sx, sy);
 
   //
 
@@ -381,20 +366,18 @@ int check_arf(int n) {
 
   for(i=0;i<n/2;i++) {
     if (i == 0) {
-      if (fabs(sx[(2*0+0)] - creal(fs[0  ])) > THRES) success = 0;
-      if (fabs(sx[(2*0+1)] - creal(fs[n/2])) > THRES) success = 0;
+      if (fabs(sy[(2*0+0)] - creal(fs[0  ])) > THRES) success = 0;
+      if (fabs(sy[(2*0+1)] - creal(fs[n/2])) > THRES) success = 0;
     } else {
-      if (fabs(sx[(2*i+0)] - creal(fs[i])) > THRES) success = 0;
-      if (fabs(sx[(2*i+1)] - cimag(fs[i])) > THRES) success = 0;
+      if (fabs(sy[(2*i+0)] - creal(fs[i])) > THRES) success = 0;
+      if (fabs(sy[(2*i+1)] - cimag(fs[i])) > THRES) success = 0;
     }
   }
 
   //
 
-  free(fs);
-  free(ts);
-
   Sleef_free(sx);
+  Sleef_free(sy);
   SleefDFT_dispose(p);
 
   //
@@ -410,11 +393,6 @@ int check_arb(int n) {
 
   cmpl *ts = (cmpl *)malloc(sizeof(cmpl)*n);
   cmpl *fs = (cmpl *)malloc(sizeof(cmpl)*n);
-
-  if (!sx || !sy || !ts || !fs) {
-    fprintf(stderr, "Memory allocation failed");
-    exit(-1);
-  }
 
   //
 

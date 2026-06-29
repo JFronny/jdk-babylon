@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -47,6 +47,9 @@
 #endif
 #ifdef COMPILER2
 #include "opto/c2compiler.hpp"
+#endif
+#if INCLUDE_JVMCI
+#include "jvmci/jvmci.hpp"
 #endif
 
 int64_t CompilationPolicy::_start_time = 0;
@@ -191,7 +194,7 @@ static inline CompLevel adjust_level_for_compilability_query(CompLevel comp_leve
   if (comp_level == CompLevel_any) {
      if (CompilerConfig::is_c1_only()) {
        comp_level = CompLevel_simple;
-     } else if (CompilerConfig::is_c2_only()) {
+     } else if (CompilerConfig::is_c2_or_jvmci_compiler_only()) {
        comp_level = CompLevel_full_optimization;
      }
   }
@@ -237,12 +240,54 @@ bool CompilationPolicy::is_compilation_enabled() {
   return CompileBroker::should_compile_new_jobs();
 }
 
+CompileTask* CompilationPolicy::select_task_helper(CompileQueue* compile_queue) {
+  // Remove unloaded methods from the queue
+  for (CompileTask* task = compile_queue->first(); task != nullptr; ) {
+    CompileTask* next = task->next();
+    if (task->is_unloaded()) {
+      compile_queue->remove_and_mark_stale(task);
+    }
+    task = next;
+  }
+#if INCLUDE_JVMCI
+  if (UseJVMCICompiler && !BackgroundCompilation) {
+    /*
+     * In blocking compilation mode, the CompileBroker will make
+     * compilations submitted by a JVMCI compiler thread non-blocking. These
+     * compilations should be scheduled after all blocking compilations
+     * to service non-compiler related compilations sooner and reduce the
+     * chance of such compilations timing out.
+     */
+    for (CompileTask* task = compile_queue->first(); task != nullptr; task = task->next()) {
+      if (task->is_blocking()) {
+        return task;
+      }
+    }
+  }
+#endif
+  return compile_queue->first();
+}
+
 // Simple methods are as good being compiled with C1 as C2.
 // Determine if a given method is such a case.
 bool CompilationPolicy::is_trivial(const methodHandle& method) {
   if (method->is_accessor() ||
       method->is_constant_getter()) {
     return true;
+  }
+  return false;
+}
+
+bool CompilationPolicy::force_comp_at_level_simple(const methodHandle& method) {
+  if (CompilationModeFlag::quick_internal()) {
+#if INCLUDE_JVMCI
+    if (UseJVMCICompiler) {
+      AbstractCompiler* comp = CompileBroker::compiler(CompLevel_full_optimization);
+      if (comp != nullptr && comp->is_jvmci() && ((JVMCICompiler*) comp)->force_comp_at_level_simple(method)) {
+        return true;
+      }
+    }
+#endif
   }
   return false;
 }
@@ -514,7 +559,7 @@ void CompilationPolicy::initialize() {
   if (!CompilerConfig::is_interpreter_only()) {
     int count = CICompilerCount;
     bool c1_only = CompilerConfig::is_c1_only();
-    bool c2_only = CompilerConfig::is_c2_only();
+    bool c2_only = CompilerConfig::is_c2_or_jvmci_compiler_only();
     int min_count = (c1_only || c2_only) ? 1 : 2;
 
 #ifdef _LP64
@@ -572,8 +617,18 @@ void CompilationPolicy::initialize() {
       // No C1 compiler threads are needed
       set_c2_count(count);
     } else {
-      set_c1_count(MAX2(count / 3, 1));
-      set_c2_count(MAX2(count - c1_count(), 1));
+#if INCLUDE_JVMCI
+      if (UseJVMCICompiler && UseJVMCINativeLibrary) {
+        int libjvmci_count = MAX2((int) (count * JVMCINativeLibraryThreadFraction), 1);
+        int c1_count = MAX2(count - libjvmci_count, 1);
+        set_c2_count(libjvmci_count);
+        set_c1_count(c1_count);
+      } else
+#endif
+      {
+        set_c1_count(MAX2(count / 3, 1));
+        set_c2_count(MAX2(count - c1_count(), 1));
+      }
     }
     assert(count == c1_count() + c2_count(), "inconsistent compiler thread count");
     set_increase_threshold_at_ratio();
@@ -594,7 +649,7 @@ bool CompilationPolicy::verify_level(CompLevel level) {
   if (!CompilerConfig::is_c1_enabled() && is_c1_compile(level)) {
     return false;
   }
-  if (!CompilerConfig::is_c2_enabled() && is_c2_compile(level)) {
+  if (!CompilerConfig::is_c2_or_jvmci_compiler_enabled() && is_c2_compile(level)) {
     return false;
   }
 
@@ -608,6 +663,8 @@ bool CompilationPolicy::verify_level(CompLevel level) {
     return level == CompLevel_simple;
   } else if (CompilationModeFlag::high_only()) {
     return level == CompLevel_full_optimization;
+  } else if (CompilationModeFlag::high_only_quick_internal()) {
+    return level == CompLevel_full_optimization || level == CompLevel_simple;
   }
   return false;
 }
@@ -618,7 +675,7 @@ CompLevel CompilationPolicy::highest_compile_level() {
   CompLevel level = CompLevel_none;
   // Setup the maximum level available for the current compiler configuration.
   if (!CompilerConfig::is_interpreter_only()) {
-    if (CompilerConfig::is_c2_enabled()) {
+    if (CompilerConfig::is_c2_or_jvmci_compiler_enabled()) {
       level = CompLevel_full_optimization;
     } else if (CompilerConfig::is_c1_enabled()) {
       if (CompilerConfig::is_c1_simple_only()) {
@@ -639,6 +696,7 @@ CompLevel CompilationPolicy::highest_compile_level() {
   if (!CompilationModeFlag::normal()) {
     // a) quick_only - levels 2,3,4 are invalid; levels -1,0,1 are valid;
     // b) high_only - levels 1,2,3 are invalid; levels -1,0,4 are valid;
+    // c) high_only_quick_internal - levels 2,3 are invalid; levels -1,0,1,4 are valid.
     if (CompilationModeFlag::quick_only()) {
       if (level == CompLevel_limited_profile || level == CompLevel_full_profile || level == CompLevel_full_optimization) {
         level = CompLevel_simple;
@@ -646,6 +704,10 @@ CompLevel CompilationPolicy::highest_compile_level() {
     } else if (CompilationModeFlag::high_only()) {
       if (level == CompLevel_simple || level == CompLevel_limited_profile || level == CompLevel_full_profile) {
         level = CompLevel_none;
+      }
+    } else if (CompilationModeFlag::high_only_quick_internal()) {
+      if (level == CompLevel_limited_profile || level == CompLevel_full_profile) {
+        level = CompLevel_simple;
       }
     }
   }
@@ -668,6 +730,12 @@ CompLevel CompilationPolicy::initial_compile_level(const methodHandle& method) {
     level = CompLevel_simple;
   } else if (CompilationModeFlag::high_only()) {
     level = CompLevel_full_optimization;
+  } else if (CompilationModeFlag::high_only_quick_internal()) {
+    if (force_comp_at_level_simple(method)) {
+      level = CompLevel_simple;
+    } else {
+      level = CompLevel_full_optimization;
+    }
   }
   assert(level != CompLevel_any, "Unhandled compilation mode");
   return limit_level(level);
@@ -737,36 +805,32 @@ CompileTask* CompilationPolicy::select_task(CompileQueue* compile_queue, JavaThr
   }
 
   if (max_blocking_task != nullptr) {
+    // In blocking compilation mode, the CompileBroker will make
+    // compilations submitted by a JVMCI compiler thread non-blocking. These
+    // compilations should be scheduled after all blocking compilations
+    // to service non-compiler related compilations sooner and reduce the
+    // chance of such compilations timing out.
     max_task = max_blocking_task;
     max_method = max_task->method();
   }
 
-  if (max_task != nullptr && max_method != nullptr) {
-    methodHandle max_method_h(THREAD, max_method);
+  methodHandle max_method_h(THREAD, max_method);
 
-    if (max_task->comp_level() == CompLevel_full_profile && TieredStopAtLevel > CompLevel_full_profile &&
-        is_method_profiled(max_method_h) && !Arguments::is_compiler_only()) {
+  if (max_task != nullptr && max_task->comp_level() == CompLevel_full_profile && TieredStopAtLevel > CompLevel_full_profile &&
+      max_method != nullptr && is_method_profiled(max_method_h) && !Arguments::is_compiler_only()) {
+    max_task->set_comp_level(CompLevel_limited_profile);
 
-      CompilerDirectiveMatcher directive_matcher(max_method_h, CompLevel_limited_profile);
-      bool exclude_limited_profile = directive_matcher.directive_set()->ExcludeOption;
-
-      if (!exclude_limited_profile) {
-        max_task->set_comp_level(CompLevel_limited_profile);
-        max_task->transfer_directive(directive_matcher);
-
-        if (CompileBroker::compilation_is_complete(max_method_h, max_task->osr_bci(), CompLevel_limited_profile)) {
-          if (PrintTieredEvents) {
-            print_event(REMOVE_FROM_QUEUE, max_method, max_method, max_task->osr_bci(), (CompLevel)max_task->comp_level());
-          }
-          compile_queue->remove_and_mark_stale(max_task);
-          max_method->clear_queued_for_compilation();
-          return nullptr;
-        }
-
-        if (PrintTieredEvents) {
-          print_event(UPDATE_IN_QUEUE, max_method, max_method, max_task->osr_bci(), (CompLevel)max_task->comp_level());
-        }
+    if (CompileBroker::compilation_is_complete(max_method_h, max_task->osr_bci(), CompLevel_limited_profile)) {
+      if (PrintTieredEvents) {
+        print_event(REMOVE_FROM_QUEUE, max_method, max_method, max_task->osr_bci(), (CompLevel)max_task->comp_level());
       }
+      compile_queue->remove_and_mark_stale(max_task);
+      max_method->clear_queued_for_compilation();
+      return nullptr;
+    }
+
+    if (PrintTieredEvents) {
+      print_event(UPDATE_IN_QUEUE, max_method, max_method, max_task->osr_bci(), (CompLevel)max_task->comp_level());
     }
   }
   return max_task;
@@ -1002,7 +1066,7 @@ bool CompilationPolicy::is_mature(MethodData* mdo) {
 // start profiling without waiting for the compiled method to arrive.
 // We also take the load on compilers into the account.
 bool CompilationPolicy::should_create_mdo(const methodHandle& method, CompLevel cur_level) {
-  if (cur_level != CompLevel_none || CompilationModeFlag::quick_only() || !ProfileInterpreter) {
+  if (cur_level != CompLevel_none || force_comp_at_level_simple(method) || CompilationModeFlag::quick_only() || !ProfileInterpreter) {
     return false;
   }
 
@@ -1185,6 +1249,9 @@ CompLevel CompilationPolicy::trained_transition(const methodHandle& method, Comp
   }
 
   // We don't have any special strategies for the C2-only compilation modes, so just fix up the levels for now.
+  if (CompilationModeFlag::high_only_quick_internal() && CompLevel_simple < next_level && next_level < CompLevel_full_optimization) {
+    return CompLevel_none;
+  }
   if (CompilationModeFlag::high_only() && next_level < CompLevel_full_optimization) {
     return CompLevel_none;
   }
@@ -1197,7 +1264,7 @@ CompLevel CompilationPolicy::trained_transition(const methodHandle& method, Comp
  *   1 - pure C1 (CompLevel_simple)
  *   2 - C1 with invocation and backedge counting (CompLevel_limited_profile)
  *   3 - C1 with full profiling (CompLevel_full_profile)
- *   4 - C2 (CompLevel_full_optimization)
+ *   4 - C2 or Graal (CompLevel_full_optimization)
  *
  * Common state transition patterns:
  * a. 0 -> 3 -> 4.
@@ -1234,7 +1301,9 @@ template<typename Predicate>
 CompLevel CompilationPolicy::common(const methodHandle& method, CompLevel cur_level, JavaThread* THREAD, bool disable_feedback) {
   CompLevel next_level = cur_level;
 
-  if (is_trivial(method) || method->is_native()) {
+  if (force_comp_at_level_simple(method)) {
+    next_level = CompLevel_simple;
+  } else if (is_trivial(method) || method->is_native()) {
     // We do not care if there is profiling data for these methods, throw them to compiler.
     next_level = CompilationModeFlag::disable_intermediate() ? CompLevel_full_optimization : CompLevel_simple;
   } else if (MethodTrainingData::have_data()) {

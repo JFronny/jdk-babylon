@@ -37,7 +37,6 @@ class ZWorkers;
 
 class ZRelocationSet {
   template <bool> friend class ZRelocationSetIteratorImpl;
-  friend class ZRelocationSetInstallTask;
 
 private:
   ZGeneration*         _generation;
@@ -46,7 +45,6 @@ private:
   size_t               _nforwardings;
   ZLock                _promotion_lock;
   ZArray<ZPage*>       _flip_promoted_pages;
-  ZArray<ZPage*>       _relocate_promoted_pages;
   ZArray<ZPage*>       _in_place_relocate_promoted_pages;
 
   ZWorkers* workers() const;
@@ -60,10 +58,8 @@ public:
   void reset(ZPageAllocator* page_allocator);
   ZGeneration* generation() const;
   ZArray<ZPage*>* flip_promoted_pages();
-  ZArray<ZPage*>* relocate_promoted_pages();
 
   void register_flip_promoted(const ZArray<ZPage*>& pages);
-  void register_relocate_promoted(const ZArray<ZPage*>& pages);
   void register_in_place_relocate_promoted(ZPage* page);
 };
 

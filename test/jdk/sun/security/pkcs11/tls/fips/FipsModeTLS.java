@@ -34,12 +34,8 @@
  *      -Djdk.tls.useExtendedMasterSecret=false
  *      -Djdk.tls.client.enableSessionTicketExtension=false FipsModeTLS
  * @comment SunPKCS11 does not support (TLS1.2) SunTlsExtendedMasterSecret yet.
- *   Stateless resumption doesn't currently work with NSS-FIPS, see JDK-8368669.
- *   NSS-FIPS does not support ML-KEM, so configures the list of named groups.
- * @run main/othervm/timeout=120
- *      -Djdk.tls.client.protocols=TLSv1.3
- *      -Djdk.tls.namedGroups=x25519,secp256r1,secp384r1,secp521r1,x448,ffdhe2048,ffdhe3072,ffdhe4096,ffdhe6144,ffdhe8192
- *      FipsModeTLS
+ *   Stateless resumption doesn't currently work with NSS-FIPS, see JDK-8368669
+ * @run main/othervm/timeout=120 -Djdk.tls.client.protocols=TLSv1.3 FipsModeTLS
  */
 
 import java.io.File;
@@ -75,7 +71,6 @@ import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManagerFactory;
 
 import jdk.test.lib.security.SecurityUtils;
-import jtreg.SkippedException;
 import sun.security.internal.spec.TlsMasterSecretParameterSpec;
 import sun.security.internal.spec.TlsPrfParameterSpec;
 import sun.security.internal.spec.TlsRsaPremasterSecretParameterSpec;
@@ -99,11 +94,12 @@ public final class FipsModeTLS extends SecmodTest {
         try {
             initialize();
         } catch (Exception e) {
+            System.out.println("Test skipped: failure during" +
+                    " initialization");
             if (enableDebug) {
                 System.out.println(e);
             }
-            throw new SkippedException("Test skipped: failure during" +
-                                       " initialization");
+            return;
         }
 
         if (shouldRun()) {
@@ -116,8 +112,8 @@ public final class FipsModeTLS extends SecmodTest {
 
             System.out.println("Test PASS - OK");
         } else {
-            throw new SkippedException("Test skipped: TLS 1.2 mechanisms" +
-                                       " not supported by current SunPKCS11 back-end");
+            System.out.println("Test skipped: TLS 1.2 mechanisms" +
+                    " not supported by current SunPKCS11 back-end");
         }
     }
 
@@ -460,8 +456,9 @@ public final class FipsModeTLS extends SecmodTest {
         //  2. SUN (to handle X.509 certificates)
         //  3. SunJSSE (for a TLS engine)
 
-        initSecmod();
-
+        if (initSecmod() == false) {
+            return;
+        }
         String configName = BASE + SEP + "nss.cfg";
         sunPKCS11NSSProvider = getSunPKCS11(configName);
         System.out.println("SunPKCS11 provider: " + sunPKCS11NSSProvider);

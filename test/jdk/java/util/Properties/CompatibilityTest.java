@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -24,19 +24,19 @@
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Properties;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.testng.Assert;
+
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
 
 /*
  * @test
  * @bug 8252354
- * @run junit CompatibilityTest
+ * @run testng CompatibilityTest
  * @summary Verify compatibility.
  */
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class CompatibilityTest {
+    @DataProvider(name = "entries")
     public Object[][] getEntries() throws IOException {
         return new Object[][]{
             {8, 238923},
@@ -53,10 +53,9 @@ public class CompatibilityTest {
      * @param value the value
      * @throws IOException
      */
-    @ParameterizedTest
-    @MethodSource("getEntries")
+    @Test(dataProvider = "entries")
     void testThrows(Object key, Object value) throws IOException {
-        Assertions.assertThrows(ClassCastException.class, () -> storeToXML(key, value));
+        Assert.assertThrows(ClassCastException.class, () -> storeToXML(key, value));
     }
 
     void storeToXML(Object key, Object value) throws IOException {

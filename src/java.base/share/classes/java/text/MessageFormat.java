@@ -1713,7 +1713,12 @@ public class MessageFormat extends Format {
             throw new IllegalArgumentException("unknown format type: " + type);
         }
         // Get the style if recognized, otherwise treat style as a SubformatPattern
-        FormatStyle fStyle = FormatStyle.fromString(style);
+        FormatStyle fStyle;
+        try {
+            fStyle = FormatStyle.fromString(style);
+        } catch (IllegalArgumentException iae) {
+            fStyle = FormatStyle.SUBFORMATPATTERN;
+        }
         return switch (fType) {
             case NUMBER -> switch (fStyle) {
                 case DEFAULT -> NumberFormat.getInstance(locale);
@@ -1971,43 +1976,41 @@ public class MessageFormat extends Format {
     }
 
     // Corresponding to the FormatStyle pattern
-    // WARNING: fromString is dependent on ordinal positioning and Enum names.
     private enum FormatStyle {
-        // Special styles
-        DEFAULT,
-        SUBFORMATPATTERN,
-        // Pre-defined styles
-        SHORT,
-        MEDIUM,
-        LONG,
-        FULL,
-        INTEGER,
-        CURRENCY,
-        PERCENT,
-        COMPACT_SHORT,
-        COMPACT_LONG,
-        OR,
-        UNIT;
+        DEFAULT(""),
+        SHORT("short"),
+        MEDIUM("medium"),
+        LONG("long"),
+        FULL("full"),
+        INTEGER("integer"),
+        CURRENCY("currency"),
+        PERCENT("percent"),
+        COMPACT_SHORT("compact_short"),
+        COMPACT_LONG("compact_long"),
+        OR("or"),
+        UNIT("unit"),
+        SUBFORMATPATTERN(null);
 
-        // Returns a FormatStyle corresponding to the input text.
-        // DEFAULT is the empty String.
-        // Pre-defined styles are lower case versions of their enum name
-        // (but compared case-insensitive for historical compatibility).
-        // SUBFORMATPATTERN is anything else.
+        private final String text;
+
+        // Differs from FormatType in that the text String is
+        // not guaranteed to match the Enum name, thus a text field is used
+        FormatStyle(String text) {
+            this.text = text;
+        }
+
+        // This method returns a FormatStyle (excluding SUBFORMATPATTERN)
+        // that matches the passed String. If no FormatStyle is found,
+        // an IllegalArgumentException is thrown
         private static FormatStyle fromString(String text) {
-            var style = text.trim();
-            if (style.isEmpty()) {
-                return FormatStyle.DEFAULT;
-            }
-            var styles = values();
-            // Match starting at the pre-defined styles -> [SHORT:]
-            for (int i = SHORT.ordinal(); i < styles.length; i++) {
-                var fStyle = styles[i];
-                if (style.compareToIgnoreCase(fStyle.name()) == 0) {
-                    return fStyle;
+            for (FormatStyle style : values()) {
+                // Also check trimmed case-insensitive for historical reasons
+                if (style != FormatStyle.SUBFORMATPATTERN &&
+                        text.trim().compareToIgnoreCase(style.text) == 0) {
+                    return style;
                 }
             }
-            return FormatStyle.SUBFORMATPATTERN;
+            throw new IllegalArgumentException();
         }
     }
 

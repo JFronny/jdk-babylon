@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -60,9 +60,9 @@ public:
 // - Reset the reusable PartialArrayStateManager.
 class G1PostEvacuateCollectionSetCleanupTask2 : public G1BatchedTask {
   class EagerlyReclaimHumongousObjectsTask;
-#ifdef COMPILER2
+#if COMPILER2_OR_JVMCI
   class UpdateDerivedPointersTask;
-#endif // COMPILER2
+#endif
 
   class ProcessEvacuationFailedRegionsTask;
   class FreeCollectionSetTask;

@@ -418,15 +418,19 @@ public abstract class ForkJoinTask<V> implements Future<V>, Serializable {
                 for (;;) {
                     if ((s = status) < 0)
                         break;
+                    else if (interrupts < 0) {
+                        s = ABNORMAL;         // interrupted and not done
+                        break;
+                    }
                     else if (Thread.interrupted()) {
-                        if (ForkJoinPool.poolIsStopping(pool)) {
+                        if (!ForkJoinPool.poolIsStopping(pool))
+                            interrupts = interruptible ? -1 : 1;
+                        else {
+                            interrupts = 1;   // re-assert if cleared
                             try {
                                 cancel(true);
-                            } catch (Throwable ignore) { }
-                        }
-                        if ((interrupts = interruptible ? -1 : 1) < 0) {
-                            s = ABNORMAL;
-                            break;
+                            } catch (Throwable ignore) {
+                            }
                         }
                     }
                     else if (deadline != 0L) {

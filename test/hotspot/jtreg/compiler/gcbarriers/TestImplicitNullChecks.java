@@ -64,8 +64,6 @@ public class TestImplicitNullChecks {
     public static void main(String[] args) {
         TestFramework.runWithFlags("-XX:CompileCommand=inline,java.lang.ref.*::*",
                                    "-XX:-TieredCompilation");
-        TestFramework.runWithFlags("-XX:CompileCommand=inline,java.lang.ref.*::*",
-                                   "-XX:+TieredCompilation", "-XX:TieredStopAtLevel=1");
     }
 
     @Test

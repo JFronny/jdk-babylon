@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2015, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,20 +25,21 @@
 
 package jdk.internal.net.http;
 
-import java.io.Closeable;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.net.InetSocketAddress;
 import java.net.ProtocolException;
 import java.net.http.HttpClient;
 import java.net.http.HttpClient.Version;
 import java.net.http.HttpHeaders;
 import java.nio.ByteBuffer;
-import java.nio.channels.ClosedChannelException;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.ArrayList;
+import java.net.http.HttpConnectTimeoutException;
+import java.time.Duration;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -48,14 +49,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Flow;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 import java.util.function.Supplier;
-
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLException;
 
@@ -130,7 +130,7 @@ import static jdk.internal.net.http.frame.SettingsFrame.MAX_HEADER_LIST_SIZE;
  * and incoming stream creation (Server push). Incoming frames destined for a
  * stream are provided by calling Stream.incoming().
  */
-class Http2Connection implements Closeable {
+class Http2Connection  {
 
     final Logger debug = Utils.getDebugLogger(this::dbgString);
     static final Logger DEBUG_LOGGER =
@@ -143,8 +143,6 @@ class Http2Connection implements Closeable {
     private static final int MAX_SERVER_STREAM_ID = Integer.MAX_VALUE - 1; // 2147483646
     // may be null; must be accessed/updated with the stateLock held
     private IdleConnectionTimeoutEvent idleConnectionTimeoutEvent;
-    private final AtomicBoolean goAwaySent = new AtomicBoolean();
-    private final AtomicBoolean goAwayRecvd = new AtomicBoolean();
 
     /**
      * Flag set when no more streams to be opened on this connection.
@@ -217,7 +215,7 @@ class Http2Connection implements Closeable {
         }
 
         /**
-         * {@link #close(Http2TerminationCause) Closes} the connection, unless this event is
+         * {@link #shutdown(Throwable) Shuts down} the connection, unless this event is
          * {@link #cancelled}
          */
         @Override
@@ -230,20 +228,26 @@ class Http2Connection implements Closeable {
             try {
                 if (cancelled) {
                     if (debug.on()) {
-                        debug.log("Idle timeout event already cancelled, not initiating idle connection close");
+                        debug.log("Not initiating idle connection shutdown");
                     }
                     return;
                 }
-                // the connection has been idle long enough, we now
-                // mark a state indicating that the connection is chosen
-                // for idle termination and should not be handed out (from the pool)
-                // for newer requests.
-                connTerminator.markForIdleTermination();
+                if (!markIdleShutdownInitiated()) {
+                    if (debug.on()) {
+                        debug.log("Unexpected state %s, skipping idle connection shutdown",
+                                describeClosedState(closedState));
+                    }
+                    return;
+                }
             } finally {
                 stateLock.unlock();
             }
-            // terminate the connection due to being idle long enough
-            connTerminator.idleTimedOut();
+            if (debug.on()) {
+                debug.log("Initiating shutdown of HTTP connection which is idle for too long");
+            }
+            HttpConnectTimeoutException hte = new HttpConnectTimeoutException(
+                    "HTTP connection idle, no active streams. Shutting down.");
+            shutdown(hte);
         }
 
         /**
@@ -252,7 +256,7 @@ class Http2Connection implements Closeable {
         void cancel() {
             assert stateLock.isHeldByCurrentThread() : "Current thread doesn't hold " + stateLock;
             // mark as cancelled to prevent potentially already triggered event from actually
-            // doing the close
+            // doing the shutdown
             this.cancelled = true;
             // cancel the timer to prevent the event from being triggered (if it hasn't already)
             client().cancelTimer(this);
@@ -372,7 +376,16 @@ class Http2Connection implements Closeable {
     }
 
 
+    private static final int HALF_CLOSED_LOCAL  = 1;
+    private static final int HALF_CLOSED_REMOTE = 2;
+    private static final int SHUTDOWN_REQUESTED = 4;
+    // state when idle connection management initiates a shutdown of the connection, after
+    // which the connection will go into SHUTDOWN_REQUESTED state
+    private static final int IDLE_SHUTDOWN_INITIATED = 8;
     private final ReentrantLock stateLock = new ReentrantLock();
+    private volatile int closedState;
+
+    //-------------------------------------
     final HttpConnection connection;
     private final Http2ClientImpl client2;
     private final ConcurrentHashMap<Integer,Stream<?>> streams = new ConcurrentHashMap<>();
@@ -390,9 +403,7 @@ class Http2Connection implements Closeable {
     private final Decoder hpackIn;
     final SettingsFrame clientSettings;
     private volatile SettingsFrame serverSettings;
-
     private record PushContinuationState(PushPromiseDecoder pushContDecoder, PushPromiseFrame pushContFrame) {}
-
     private volatile PushContinuationState pushContinuationState;
     private final String key; // for HttpClientImpl.connections map
     private final FramesDecoder framesDecoder;
@@ -407,7 +418,7 @@ class Http2Connection implements Closeable {
     private final FramesController framesController = new FramesController();
     private final Http2TubeSubscriber subscriber;
     final ConnectionWindowUpdateSender windowUpdater;
-    private final Terminator connTerminator = new Terminator();
+    private final AtomicReference<Throwable> cause = new AtomicReference<>();
     private volatile Supplier<ByteBuffer> initial;
     private volatile Stream<?> initialStream;
 
@@ -629,31 +640,35 @@ class Http2Connection implements Closeable {
     }
 
     void abandonStream() {
+        boolean shouldClose = false;
         stateLock.lock();
         try {
             long reserved = --numReservedClientStreams;
             assert reserved >= 0;
+            if (finalStream && reserved == 0 && streams.isEmpty()) {
+                shouldClose = true;
+            }
         } catch (Throwable t) {
-            close(Http2TerminationCause.forException(t)); // in case the assert fires...
+            shutdown(t); // in case the assert fires...
         } finally {
             stateLock.unlock();
         }
 
-        // if the connection is eligible to be closed, we close it here
-        if (shouldClose()) {
-            close(Http2TerminationCause.noErrorTermination());
+        // We should close the connection here if
+        // it's not pooled. If it's not pooled it will
+        // be marked final stream, reserved will be 0
+        // after decrementing it by one, and there should
+        // be no active request-response streams.
+        if (shouldClose) {
+            shutdown(new IOException("HTTP/2 connection abandoned"));
         }
+
     }
 
-    /*
-     * return true if the connection is marked as "final stream" and there
-     * are no active streams on that connection and the connection isn't
-     * reserved for a new stream.
-     */
-    final boolean shouldClose() {
+    boolean shouldClose() {
         stateLock.lock();
         try {
-            return finalStream() && streams.isEmpty() && numReservedClientStreams == 0;
+            return finalStream() && streams.isEmpty();
         } finally {
             stateLock.unlock();
         }
@@ -825,8 +840,22 @@ class Http2Connection implements Closeable {
         return clientSettings.getParameter(MAX_CONCURRENT_STREAMS);
     }
 
-    long count;
+    void close() {
+        if (markHalfClosedLocal()) {
+            // we send a GOAWAY frame only if the remote side hasn't already indicated
+            // the intention to close the connection by previously sending a GOAWAY of its own
+            if (connection.channel().isOpen() && !isMarked(closedState, HALF_CLOSED_REMOTE)) {
+                Log.logTrace("Closing HTTP/2 connection: to {0}", connection.address());
+                GoAwayFrame f = new GoAwayFrame(0,
+                        ErrorFrame.NO_ERROR,
+                        "Requested by user".getBytes(UTF_8));
+                // TODO: set last stream. For now zero ok.
+                sendFrame(f);
+            }
+        }
+    }
 
+    long count;
     final void asyncReceive(ByteBuffer buffer) {
         // We don't need to read anything and
         // we don't want to send anything back to the server
@@ -875,26 +904,44 @@ class Http2Connection implements Closeable {
         } catch (Throwable e) {
             String msg = Utils.stackTrace(e);
             Log.logTrace(msg);
-            close(Http2TerminationCause.forException(e));
+            shutdown(e);
         }
     }
 
-    /**
-     * Closes the connection normally (with a NO_ERROR termination cause), if not already closed.
-     */
-    @Override
-    public final void close() {
-        close(Http2TerminationCause.noErrorTermination());
+    Throwable getRecordedCause() {
+        return cause.get();
     }
 
-    /**
-     * Closes the connection with the given termination cause, if not already closed.
-     *
-     * @param tc the termination cause. cannot be null.
-     */
-    final void close(final Http2TerminationCause tc) {
-        Objects.requireNonNull(tc, "termination cause cannot be null");
-        this.connTerminator.terminate(tc);
+    void shutdown(Throwable t) {
+        int state = closedState;
+        if (debug.on()) debug.log(() -> "Shutting down h2c (state="+describeClosedState(state)+"): " + t);
+        stateLock.lock();
+        try {
+            if (!markShutdownRequested()) return;
+            cause.compareAndSet(null, t);
+        } finally {
+            stateLock.unlock();
+        }
+
+        if (Log.errors()) {
+            if (t!= null && (!(t instanceof EOFException) || isActive())) {
+                Log.logError(t);
+            } else if (t != null) {
+                Log.logError("Shutting down connection: {0}", t.getMessage());
+            } else {
+                Log.logError("Shutting down connection");
+            }
+        }
+        client2.removeFromPool(this);
+        subscriber.stop(cause.get());
+        for (Stream<?> s : streams.values()) {
+            try {
+                s.connectionClosing(t);
+            } catch (Throwable e) {
+                Log.logError("Failed to close stream {0}: {1}", s.streamid, e);
+            }
+        }
+        connection.close(cause.get());
     }
 
     /**
@@ -934,14 +981,15 @@ class Http2Connection implements Closeable {
         } else {
             if (frame instanceof SettingsFrame) {
                 // The stream identifier for a SETTINGS frame MUST be zero
-                protocolError(ErrorFrame.PROTOCOL_ERROR,
+                framesDecoder.close(
                         "The stream identifier for a SETTINGS frame MUST be zero");
+                protocolError(GoAwayFrame.PROTOCOL_ERROR);
                 return;
             }
 
             if (frame instanceof PushPromiseFrame && !serverPushEnabled()) {
                 String protocolError = "received a PUSH_PROMISE when SETTINGS_ENABLE_PUSH is 0";
-                protocolError(ErrorFrame.PROTOCOL_ERROR, protocolError);
+                protocolError(ResetFrame.PROTOCOL_ERROR, protocolError);
                 return;
             }
 
@@ -1096,9 +1144,7 @@ class Http2Connection implements Closeable {
     // Otherwise, if the frame is dropped after having been added to the
     // inputQ, releaseUnconsumed above should be called.
     final void dropDataFrame(DataFrame df) {
-        if (!isOpen()) {
-            return;
-        }
+        if (isMarked(closedState, SHUTDOWN_REQUESTED)) return;
         if (debug.on()) {
             debug.log("Dropping data frame for stream %d (%d payload bytes)",
                     df.streamid(), df.payloadLength());
@@ -1108,9 +1154,7 @@ class Http2Connection implements Closeable {
 
     final void ensureWindowUpdated(DataFrame df) {
         try {
-            if (!isOpen()) {
-                return;
-            }
+            if (isMarked(closedState, SHUTDOWN_REQUESTED)) return;
             int length = df.payloadLength();
             if (length > 0) {
                 windowUpdater.update(length);
@@ -1207,16 +1251,12 @@ class Http2Connection implements Closeable {
             case AltSvcFrame.TYPE -> processAltSvcFrame(0, (AltSvcFrame) frame,
                     connection, connection.client());
 
-            default -> protocolError(ErrorFrame.PROTOCOL_ERROR, "unknown frame: " + frame);
+            default -> protocolError(ErrorFrame.PROTOCOL_ERROR);
         }
     }
 
-    /**
-     * Returns true if this connection hasn't been terminated and the underlying
-     * {@linkplain NetworkChannel#isOpen() channel is open}. false otherwise.
-     */
-    final boolean isOpen() {
-        return this.connTerminator.terminationCause.get() == null && connection.channel().isOpen();
+    boolean isOpen() {
+        return !isMarkedForShutdown() && connection.channel().isOpen();
     }
 
     void resetStream(int streamid, int code) {
@@ -1255,7 +1295,6 @@ class Http2Connection implements Closeable {
         }
 
     }
-
     private void decrementStreamsCount0(int streamid) {
         Stream<?> s = streams.get(streamid);
         if (s == null || !s.deRegister())
@@ -1307,7 +1346,8 @@ class Http2Connection implements Closeable {
             // corresponding entry in the window controller.
             windowController.removeStream(streamid);
         }
-        if (shouldClose()) {
+        if (finalStream() && streams.isEmpty()) {
+            // should be only 1 stream, but there might be more if server push
             close();
         } else {
             // Start timer if property present and not already created
@@ -1332,7 +1372,9 @@ class Http2Connection implements Closeable {
     /**
      * Increments this connection's send Window by the amount in the given frame.
      */
-    private void handleWindowUpdate(WindowUpdateFrame f) {
+    private void handleWindowUpdate(WindowUpdateFrame f)
+        throws IOException
+    {
         int amount = f.getUpdate();
         if (amount <= 0) {
             // ## temporarily disable to workaround a bug in Jetty where it
@@ -1341,19 +1383,37 @@ class Http2Connection implements Closeable {
         } else {
             boolean success = windowController.increaseConnectionWindow(amount);
             if (!success) {
-                protocolError(ErrorFrame.FLOW_CONTROL_ERROR, null);  // overflow
+                protocolError(ErrorFrame.FLOW_CONTROL_ERROR);  // overflow
             }
         }
     }
 
-    private void protocolError(final int errorCode, final String msg) {
-        final Http2TerminationCause terminationCause =
-                Http2TerminationCause.forH2Error(errorCode, msg);
-        framesDecoder.close(terminationCause.getLogMsg());
-        close(terminationCause);
+    private void protocolError(int errorCode)
+        throws IOException
+    {
+        protocolError(errorCode, null);
     }
 
-    private void handleSettings(SettingsFrame frame) {
+    private void protocolError(int errorCode, String msg)
+        throws IOException
+    {
+        String protocolError = "protocol error" + (msg == null?"":(": " + msg));
+        ProtocolException protocolException =
+                new ProtocolException(protocolError);
+        this.cause.compareAndSet(null, protocolException);
+        if (markHalfClosedLocal()) {
+            framesDecoder.close(protocolError);
+            subscriber.stop(protocolException);
+            if (debug.on()) debug.log("Sending GOAWAY due to " + protocolException);
+            GoAwayFrame frame = new GoAwayFrame(0, errorCode);
+            sendFrame(frame);
+        }
+        shutdown(protocolException);
+    }
+
+    private void handleSettings(SettingsFrame frame)
+        throws IOException
+    {
         assert frame.streamid() == 0;
         if (!frame.getFlag(SettingsFrame.ACK)) {
             int newWindowSize = frame.getParameter(INITIAL_WINDOW_SIZE);
@@ -1370,7 +1430,9 @@ class Http2Connection implements Closeable {
         }
     }
 
-    private void handlePing(PingFrame frame) {
+    private void handlePing(PingFrame frame)
+        throws IOException
+    {
         frame.setFlag(PingFrame.ACK);
         sendUnorderedFrame(frame);
     }
@@ -1380,7 +1442,7 @@ class Http2Connection implements Closeable {
         assert lastProcessedStream >= 0 : "unexpected last stream id: "
                 + lastProcessedStream + " in GOAWAY frame";
 
-        goAwayRecvd.set(true);
+        markHalfClosedRemote();
         setFinalStream(); // don't allow any new streams on this connection
         if (debug.on()) {
             debug.log("processing incoming GOAWAY with last processed stream id:%s in frame %s",
@@ -1537,20 +1599,20 @@ class Http2Connection implements Closeable {
         // must be done with "stateLock" held to co-ordinate idle connection management
         stateLock.lock();
         try {
-            cancelIdleCloseEvent();
-            // consider the reservation successful only if the connection is open and
-            // hasn't been chosen for idle termination
-            return !this.connTerminator.isMarkedForIdleTermination() && isOpen();
+            cancelIdleShutdownEvent();
+            // consider the reservation successful only if the connection's state hasn't moved
+            // to "being closed"
+            return isOpen();
         } finally {
             stateLock.unlock();
         }
     }
 
     /**
-     * Cancels any event that might have been scheduled to close this connection. Must be called
+     * Cancels any event that might have been scheduled to shutdown this connection. Must be called
      * with the stateLock held.
      */
-    private void cancelIdleCloseEvent() {
+    private void cancelIdleShutdownEvent() {
         assert stateLock.isHeldByCurrentThread() : "Current thread doesn't hold " + stateLock;
         if (idleConnectionTimeoutEvent == null) {
             return;
@@ -1565,23 +1627,20 @@ class Http2Connection implements Closeable {
         // the stream is closed.
         stateLock.lock();
         try {
-            if (isOpen() && !this.connTerminator.isMarkedForIdleTermination()) {
+            if (!isMarkedForShutdown()) {
                 if (debug.on()) {
                     debug.log("Opened stream %d", streamid);
                 }
                 client().streamReference();
                 streams.put(streamid, stream);
-                // don't consider the connection idle anymore
-                cancelIdleCloseEvent();
+                cancelIdleShutdownEvent();
                 return;
             }
         } finally {
             stateLock.unlock();
         }
         if (debug.on()) debug.log("connection closed: closing stream %d", stream);
-        final Http2TerminationCause terminationCause = getTerminationCause();
-        assert terminationCause != null : "termination cause is null";
-        stream.cancel(new IOException("Stream " + streamid + " cancelled", terminationCause.getCloseCause()));
+        stream.cancel(new IOException("Stream " + streamid + " cancelled", cause.get()));
     }
 
     /**
@@ -1609,37 +1668,16 @@ class Http2Connection implements Closeable {
         return frames;
     }
 
-    // Dedicated reusable ByteBuffer for headers encoding.
+    // Dedicated cache for headers encoding ByteBuffer.
     // There can be no concurrent access to this  buffer as all access to this buffer
     // and its content happen within a single critical code block section protected
-    // by the sendlock (see sendFrame()).
-    private ByteBuffer cachedHeaderBuffer;
-
-    // getCachedHeaderBuffer() is used only by tests and it should not be
-    // called in source code without also holding `sendlock`.
-    ByteBuffer getCachedHeaderBuffer() {
-        return cachedHeaderBuffer;
-    }
+    // by the sendLock. / (see sendFrame())
+    // private final ByteBufferPool headerEncodingPool = new ByteBufferPool();
 
     private ByteBuffer getHeaderBuffer(int size) {
-        assert sendlock.isHeldByCurrentThread() : "current thread is not holding sendlock";
-
-        if (cachedHeaderBuffer == null || cachedHeaderBuffer.capacity() < size) {
-            cachedHeaderBuffer = ByteBuffer.allocate(size);
-            return cachedHeaderBuffer;
-        }
-
-        cachedHeaderBuffer.clear();
-        cachedHeaderBuffer.limit(size);
-        return cachedHeaderBuffer;
-    }
-
-    private static ByteBuffer copyBuffer(ByteBuffer buffer) {
-        buffer.flip();
-        ByteBuffer copy = ByteBuffer.allocate(buffer.remaining());
-        copy.put(buffer);
-        copy.flip();
-        return copy;
+        ByteBuffer buf = ByteBuffer.allocate(size);
+        buf.limit(size);
+        return buf;
     }
 
     /*
@@ -1654,8 +1692,8 @@ class Http2Connection implements Closeable {
      *     encoding in HTTP/2...
      */
     private List<ByteBuffer> encodeHeadersImpl(int bufferSize, HttpHeaders... headers) {
-        List<ByteBuffer> buffers = new ArrayList<>();
         ByteBuffer buffer = getHeaderBuffer(bufferSize);
+        List<ByteBuffer> buffers = new ArrayList<>();
         for (HttpHeaders header : headers) {
             for (Map.Entry<String, List<String>> e : header.map().entrySet()) {
                 String lKey = e.getKey().toLowerCase(Locale.US);
@@ -1664,17 +1702,16 @@ class Http2Connection implements Closeable {
                     hpackOut.header(lKey, value);
                     while (!hpackOut.encode(buffer)) {
                         if (!buffer.hasRemaining()) {
-                            ByteBuffer copy = copyBuffer(buffer);
-                            buffers.add(copy);
-                            buffer.clear();
-                            buffer.limit(bufferSize);
+                            buffer.flip();
+                            buffers.add(buffer);
+                            buffer = getHeaderBuffer(bufferSize);
                         }
                     }
                 }
             }
         }
-        ByteBuffer copy = copyBuffer(buffer);
-        buffers.add(copy);
+        buffer.flip();
+        buffers.add(buffer);
         return buffers;
     }
 
@@ -1706,10 +1743,11 @@ class Http2Connection implements Closeable {
         int streamid = nextstreamid;
         Throwable cause = null;
         synchronized (this) {
-            if (!isOpen()) {
-                final Http2TerminationCause terminationCause = getTerminationCause();
-                assert terminationCause != null : "termination cause is null";
-                cause = terminationCause.getCloseCause();
+            if (isMarked(closedState, SHUTDOWN_REQUESTED)) {
+                cause = this.cause.get();
+                if (cause == null) {
+                    cause = new IOException("Connection closed");
+                }
             }
         }
         if (cause != null) {
@@ -1724,14 +1762,14 @@ class Http2Connection implements Closeable {
             return stream;
         } else {
             stream.cancelImpl(new IOException("Request cancelled"));
-            if (shouldClose()) {
+            if (finalStream() && streams.isEmpty()) {
                 close();
             }
             return null;
         }
     }
 
-    private final ReentrantLock sendlock = new ReentrantLock();
+    private final Lock sendlock = new ReentrantLock();
 
     void sendFrame(Http2Frame frame) {
         try {
@@ -1757,12 +1795,14 @@ class Http2Connection implements Closeable {
             }
             publisher.signalEnqueued();
         } catch (IOException e) {
-            if (!client2.stopping()) {
-                Log.logError(e);
-            } else if (debug.on()) {
-                debug.log("Failed to send %s while stopping: %s", frame, e);
+            if (!isMarked(closedState, SHUTDOWN_REQUESTED)) {
+                if (!client2.stopping()) {
+                    Log.logError(e);
+                    shutdown(e);
+                } else if (debug.on()) {
+                    debug.log("Failed to send %s while stopping: %s", frame, e);
+                }
             }
-            close(Http2TerminationCause.forException(e));
         }
     }
 
@@ -1777,12 +1817,14 @@ class Http2Connection implements Closeable {
             publisher.enqueue(encodeFrame(frame));
             publisher.signalEnqueued();
         } catch (IOException e) {
-            if (!client2.stopping()) {
-                Log.logError(e);
-            } else if (debug.on()) {
-                debug.log("Failed to send %s while stopping: %s", frame, e);
+            if (!isMarked(closedState, SHUTDOWN_REQUESTED)) {
+                if (!client2.stopping()) {
+                    Log.logError(e);
+                    shutdown(e);
+                } else if (debug.on()) {
+                    debug.log("Failed to send %s while stopping: %s", frame, e);
+                }
             }
-            close(Http2TerminationCause.forException(e));
         }
     }
 
@@ -1797,12 +1839,10 @@ class Http2Connection implements Closeable {
             publisher.enqueueUnordered(encodeFrame(frame));
             publisher.signalEnqueued();
         } catch (IOException e) {
-            if (!client2.stopping()) {
+            if (!isMarked(closedState, SHUTDOWN_REQUESTED)) {
                 Log.logError(e);
-            } else if (debug.on()) {
-                debug.log("Failed to send %s while stopping: %s", frame, e);
+                shutdown(e);
             }
-            close(Http2TerminationCause.forException(e));
         }
     }
 
@@ -1828,7 +1868,6 @@ class Http2Connection implements Closeable {
             try {
                 while (!queue.isEmpty() && !scheduler.isStopped()) {
                     ByteBuffer buffer = queue.poll();
-                    assert buffer != null : "null buffer obtained from non-empty queue";
                     if (debug.on())
                         debug.log("sending %d to Http2Connection.asyncReceive",
                                   buffer.remaining());
@@ -1838,12 +1877,7 @@ class Http2Connection implements Closeable {
                 errorRef.compareAndSet(null, t);
             } finally {
                 Throwable x = errorRef.get();
-                // if there was any error or if the TubeSubscriber completed normally,
-                // then close the connection
-                if (x != null || completed) {
-                    // although the connection terminator stops the scheduler too,
-                    // we don't want to wait that "long" and instead we should immediately
-                    // stop the scheduler so that we don't enter "processQueue" anymore.
+                if (x != null) {
                     scheduler.stop();
                     if (client2.stopping()) {
                         if (debug.on()) {
@@ -1854,11 +1888,7 @@ class Http2Connection implements Closeable {
                             debug.log("Stopping scheduler", x);
                         }
                     }
-                    // terminate the connection
-                    final Http2TerminationCause tc = (x != null)
-                            ? Http2TerminationCause.forException(x)
-                            : Http2TerminationCause.noErrorTermination();
-                    Http2Connection.this.close(tc);
+                    Http2Connection.this.shutdown(x);
                 }
             }
         }
@@ -1908,17 +1938,11 @@ class Http2Connection implements Closeable {
         @Override
         public void onComplete() {
             if (completed) return;
-            if (isActive()) {
-                final String msg = "EOF reached while reading";
-                errorRef.compareAndSet(null, new EOFException(msg));
-                if (debug.on()) {
-                    debug.log(msg);
-                }
-            } else {
-                if (debug.on()) {
-                    debug.log("HTTP/2 connection (with no active streams) closed by peer");
-                }
-            }
+            String msg = isActive()
+                    ? "EOF reached while reading"
+                    : "Idle connection closed by HTTP/2 peer";
+            if (debug.on()) debug.log(msg);
+            errorRef.compareAndSet(null, new EOFException(msg));
             completed = true;
             runOrSchedule();
         }
@@ -1931,13 +1955,16 @@ class Http2Connection implements Closeable {
             dropped = true;
         }
 
-        private void close() {
-            scheduler.stop();
-            queue.clear();
-            if (subscription != null) {
-                subscription.cancel();
+        void stop(Throwable error) {
+            if (errorRef.compareAndSet(null, error)) {
+                completed = true;
+                scheduler.stop();
+                queue.clear();
+                if (subscription != null) {
+                    subscription.cancel();
+                }
+                queue.clear();
             }
-            queue.clear();
         }
     }
 
@@ -1963,7 +1990,6 @@ class Http2Connection implements Closeable {
     static final class ConnectionWindowUpdateSender extends WindowUpdateSender {
 
         final int initialWindowSize;
-
         public ConnectionWindowUpdateSender(Http2Connection connection,
                                             int initialWindowSize) {
             super(connection, initialWindowSize);
@@ -1978,9 +2004,13 @@ class Http2Connection implements Closeable {
         @Override
         protected boolean windowSizeExceeded(long received) {
             if (connection.isOpen()) {
-                connection.protocolError(ErrorFrame.FLOW_CONTROL_ERROR,
-                        "connection window exceeded (%s > %s)"
-                                .formatted(received, windowSize));
+                try {
+                    connection.protocolError(ErrorFrame.FLOW_CONTROL_ERROR,
+                            "connection window exceeded (%s > %s)"
+                                    .formatted(received, windowSize));
+                } catch (IOException io) {
+                    connection.shutdown(io);
+                }
             }
             return true;
         }
@@ -2003,144 +2033,72 @@ class Http2Connection implements Closeable {
         }
     }
 
-    private void sendGoAway(final GoAwayFrame goAway) {
-        // currently we send a GOAWAY just once irrespective of what value the
-        // last stream id was in the GOAWAY frame
-        if (!goAwaySent.compareAndSet(false, true)) {
-            // already sent
-            return;
-        }
-        if (Log.trace()) {
-            Log.logTrace("{0} sending GOAWAY {1}", connection, goAway);
-        } else if (debug.on()) {
-            debug.log("sending GOAWAY " + goAway);
-        }
-        // this merely enqueues the frame
-        sendFrame(goAway);
+    private boolean isMarked(int state, int mask) {
+        return (state & mask) == mask;
     }
 
-    /**
-     * Returns the termination cause if the connection is closed, else returns null.
-     */
-    final Http2TerminationCause getTerminationCause() {
-        return this.connTerminator.determineTerminationCause();
+    private boolean isMarkedForShutdown() {
+        final int closedSt = closedState;
+        return isMarked(closedSt, IDLE_SHUTDOWN_INITIATED)
+                || isMarked(closedSt, SHUTDOWN_REQUESTED);
     }
 
-    // Responsible for doing all the necessary work for closing a Http2Connection
-    private final class Terminator {
-        // the cause for closing the connection. Must only be set in the
-        // Terminator.terminate(Http2TerminationCause) method.
-        private final AtomicReference<Http2TerminationCause> terminationCause = new AtomicReference<>();
-        // true if it has been decided to terminate the connection due to being idle,
-        // false otherwise. should be accessed only when holding the stateLock
-        private boolean chosenForIdleTermination;
+    private boolean markShutdownRequested() {
+        return markClosedState(SHUTDOWN_REQUESTED);
+    }
 
-        private void terminate(final Http2TerminationCause terminationCause) {
-            Objects.requireNonNull(terminationCause, "termination cause cannot be null");
-            // allow to be terminated only once
-            stateLock.lock();
-            try {
-                final boolean success = this.terminationCause.compareAndSet(null, terminationCause);
-                if (!success) {
-                    // already terminated or is being terminated by some other thread
-                    return;
-                }
-                // disable the idle timeout event, since we are now going to terminate the
-                // connection
-                Http2Connection.this.cancelIdleCloseEvent();
-            } finally {
-                stateLock.unlock();
-            }
-            // do the actual termination
-            doTerminate();
+    private boolean markHalfClosedLocal() {
+        return markClosedState(HALF_CLOSED_LOCAL);
+    }
+
+    private boolean markHalfClosedRemote() {
+        return markClosedState(HALF_CLOSED_REMOTE);
+    }
+
+    private boolean markIdleShutdownInitiated() {
+        return markClosedState(IDLE_SHUTDOWN_INITIATED);
+    }
+
+    private boolean markClosedState(int flag) {
+        int state, desired;
+        do {
+            state = desired = closedState;
+            if ((state & flag) == flag) return false;
+            desired = state | flag;
+        } while (!CLOSED_STATE.compareAndSet(this, state, desired));
+        return true;
+    }
+
+    String describeClosedState(int state) {
+        if (state == 0) return "active";
+        String desc = null;
+        if (isMarked(state, IDLE_SHUTDOWN_INITIATED)) {
+            desc = "idle-shutdown-initiated";
         }
-
-        private void doTerminate() {
-            final Http2TerminationCause tc = terminationCause.get();
-            assert tc != null : "missing termination cause";
-            // we send a GOAWAY frame only if the remote side hasn't already indicated
-            // the intention to close the connection by previously sending a GOAWAY of its own
-            if (!Http2Connection.this.goAwayRecvd.get()) {
-                final int lastStream = 0; // TODO: set last stream. For now zero is ok.
-                final String peerVisibleReason = tc.getPeerVisibleReason();
-                final GoAwayFrame goAway;
-                if (peerVisibleReason == null) {
-                    goAway = new GoAwayFrame(lastStream, tc.getCloseCode());
-                } else {
-                    goAway = new GoAwayFrame(lastStream, tc.getCloseCode(),
-                            peerVisibleReason.getBytes(UTF_8));
-                }
-                sendGoAway(goAway);
-            }
-            // now close the connection
-
-            if (Log.errors() || debug.on()) {
-                final String stateStr = "Abnormal close=" + tc.isAbnormalClose() +
-                        ", has active streams=" + isActive() +
-                        ", GOAWAY received=" + goAwayRecvd.get() +
-                        ", GOAWAY sent=" + goAwaySent.get();
-                if (Log.errors()) {
-                    Log.logError("Closing connection {0} ({1}) due to: {2}",
-                            connection, stateStr, tc);
-                } else {
-                    debug.log("Closing connection (" + stateStr + ") due to: " + tc);
-                }
-            }
-            // close the TubeSubscriber
-            subscriber.close();
-            client2.removeFromPool(Http2Connection.this);
-            // notify the HTTP/2 streams of the connection closure
-            for (final Stream<?> s : streams.values()) {
-                try {
-                    s.connectionClosing(tc.getCloseCause());
-                } catch (Throwable e) {
-                    Log.logError("Failed to close stream {0}: {1}", s.streamid, e);
-                }
-            }
-            // close the underlying connection
-            connection.close(tc.getCloseCause());
+        if (isMarked(state, SHUTDOWN_REQUESTED)) {
+            desc = desc == null ? "shutdown" : desc + "+shutdown";
         }
-
-        private void markForIdleTermination() {
-            assert stateLock.isHeldByCurrentThread() : Thread.currentThread()
-                    + " not holding stateLock";
-            this.chosenForIdleTermination = true;
+        if (isMarked(state, HALF_CLOSED_LOCAL | HALF_CLOSED_REMOTE)) {
+            if (desc == null) return "closed";
+            else return desc + "+closed";
         }
-
-        private boolean isMarkedForIdleTermination() {
-            assert stateLock.isHeldByCurrentThread() : Thread.currentThread()
-                    + " not holding stateLock";
-            return this.chosenForIdleTermination;
+        if (isMarked(state, HALF_CLOSED_LOCAL)) {
+            if (desc == null) return "half-closed-local";
+            else return desc + "+half-closed-local";
         }
-
-        private void idleTimedOut() {
-            if (debug.on()) {
-                debug.log("closing connection due to being idle");
-            }
-            this.terminate(Http2TerminationCause.idleTimedOut());
+        if (isMarked(state, HALF_CLOSED_REMOTE)) {
+            if (desc == null) return "half-closed-remote";
+            else return desc + "+half-closed-remote";
         }
+        return "0x" + Integer.toString(state, 16);
+    }
 
-        /**
-         * Returns the termination cause for the connection. This method guarantees that if the
-         * {@linkplain Http2Connection#isOpen() connection is not open}, when this method is called,
-         * then it returns a non-null termination cause. Returns null if the connection is open.
-         */
-        private Http2TerminationCause determineTerminationCause() {
-            final Http2TerminationCause tc = this.terminationCause.get();
-            if (tc != null) {
-                // already terminated, return the cause
-                return tc;
-            }
-            if (!connection.channel().isOpen()) {
-                // if the underlying SocketChannel isn't open, then terminate the connection.
-                // that way when Http2Connection.isOpen() returns false in that situation, then this
-                // getTerminationCause() will return a termination cause.
-                terminate(Http2TerminationCause.forException(new ClosedChannelException()));
-                final Http2TerminationCause terminated = this.terminationCause.get();
-                assert terminated != null : "missing termination cause";
-                return terminated;
-            }
-            return null; // connection still open
+    private static final VarHandle CLOSED_STATE;
+    static {
+        try {
+            CLOSED_STATE = MethodHandles.lookup().findVarHandle(Http2Connection.class, "closedState", int.class);
+        } catch (Exception x) {
+            throw new ExceptionInInitializerError(x);
         }
     }
 }

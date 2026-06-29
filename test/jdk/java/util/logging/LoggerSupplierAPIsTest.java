@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2013, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -24,7 +24,7 @@
 /*
  * @test
  * @bug 8005263
- * @run junit ${test.main.class}
+ * @run testng LoggerSupplierAPIsTest
  */
 
 import java.util.logging.Logger;
@@ -37,10 +37,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Collections;
 
-import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import org.testng.annotations.Test;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
+@Test(groups="unit")
 public class LoggerSupplierAPIsTest {
     static class CountingSupplier implements Supplier<String> {
         AtomicInteger sno = new AtomicInteger();
@@ -216,26 +217,25 @@ public class LoggerSupplierAPIsTest {
     }
 
     private void validate(int index, boolean thrown, String methodName) {
-        assertEquals(invokes[index], supplier.getCount());
-        assertEquals(log_count[index], handler.getCount());
+        assertEquals(supplier.getCount(), invokes[index]);
+        assertEquals(handler.getCount(), log_count[index]);
         // Verify associated Throwable is right
         if (thrown) {
             for (LogRecord r: handler.getLogs()) {
-                assertInstanceOf(HelperEx.class, r.getThrown(), "Validate Thrown");
+                assertTrue(r.getThrown() instanceof HelperEx, "Validate Thrown");
                 HelperEx e = (HelperEx) r.getThrown();
-                assertEquals(e.getLevel(), r.getLevel(), "Validate Thrown Log Level");
+                assertEquals(r.getLevel(), e.getLevel(), "Validate Thrown Log Level");
             }
         }
 
         if (methodName != null) {
             for (LogRecord r: handler.getLogs()) {
-                assertEquals(getClass().getName(), r.getSourceClassName());
-                assertEquals(methodName, r.getSourceMethodName());
+                assertEquals(r.getSourceClassName(), getClass().getName());
+                assertEquals(r.getSourceMethodName(), methodName);
             }
         }
     }
 
-    @Test
     public void verifyLogLevel() {
         for (int i = 0; i < levels.length; i++) {
             logger.setLevel(levels[i]);

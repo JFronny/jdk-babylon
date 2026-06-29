@@ -44,7 +44,6 @@ import java.util.stream.Stream;
 import jdk.internal.misc.CDS;
 import jdk.internal.module.ModuleReferenceImpl;
 import jdk.internal.module.ModuleTarget;
-import jdk.internal.vm.annotation.AOTSafeClassInitializer;
 import jdk.internal.vm.annotation.Stable;
 
 /**
@@ -156,7 +155,6 @@ import jdk.internal.vm.annotation.Stable;
  * @since 9
  * @see java.lang.ModuleLayer
  */
-@AOTSafeClassInitializer
 public final class Configuration {
 
     // @see Configuration#empty()

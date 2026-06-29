@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2018, 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -81,19 +81,23 @@ public class BadClassFileDuringImport {
         doTest("import p.A;",
                "A a;",
                "Test.java:2:9: compiler.err.cant.access: p.A, (compiler.misc.bad.class.file.header: A.class, (compiler.misc.illegal.start.of.class.file))",
-               "1 error");
+               "Test.java:2:33: compiler.err.cant.resolve.location: kindname.class, A, , , (compiler.misc.location: kindname.class, Test, null)",
+               "2 errors");
         doTest("import m.A;",
                "A a;",
                "Test.java:2:9: compiler.err.cant.resolve.location: kindname.class, A, , , (compiler.misc.location: kindname.package, m, null)",
-               "1 error");
+               "Test.java:2:33: compiler.err.cant.resolve.location: kindname.class, A, , , (compiler.misc.location: kindname.class, Test, null)",
+               "2 errors");
         doTest("import p.A;",
                "void test() { A a; }",
                "Test.java:2:9: compiler.err.cant.access: p.A, (compiler.misc.bad.class.file.header: A.class, (compiler.misc.illegal.start.of.class.file))",
-               "1 error");
+               "Test.java:2:47: compiler.err.cant.resolve.location: kindname.class, A, , , (compiler.misc.location: kindname.class, Test, null)",
+               "2 errors");
         doTest("import m.A;",
                "void test() { A a; }",
                "Test.java:2:9: compiler.err.cant.resolve.location: kindname.class, A, , , (compiler.misc.location: kindname.package, m, null)",
-               "1 error");
+               "Test.java:2:47: compiler.err.cant.resolve.location: kindname.class, A, , , (compiler.misc.location: kindname.class, Test, null)",
+               "2 errors");
         doTest("import p.*;",
                "",
                (String[]) null);
@@ -128,19 +132,23 @@ public class BadClassFileDuringImport {
         doTest("import p.B.I;",
                "I i;",
                "Test.java:2:11: compiler.err.cant.access: p.B.I, (compiler.misc.bad.class.file.header: B$I.class, (compiler.misc.illegal.start.of.class.file))",
-               "1 error");
+               "Test.java:2:35: compiler.err.cant.resolve.location: kindname.class, I, , , (compiler.misc.location: kindname.class, Test, null)",
+               "2 errors");
         doTest("import m.B.I;",
                "I i;",
                "Test.java:2:11: compiler.err.cant.access: m.B.I, (compiler.misc.class.file.not.found: m.B$I)",
-               "1 error");
+               "Test.java:2:35: compiler.err.cant.resolve.location: kindname.class, I, , , (compiler.misc.location: kindname.class, Test, null)",
+               "2 errors");
         doTest("import p.B.I;",
                "void test() { I i; }",
                "Test.java:2:11: compiler.err.cant.access: p.B.I, (compiler.misc.bad.class.file.header: B$I.class, (compiler.misc.illegal.start.of.class.file))",
-               "1 error");
+               "Test.java:2:49: compiler.err.cant.resolve.location: kindname.class, I, , , (compiler.misc.location: kindname.class, Test, null)",
+               "2 errors");
         doTest("import m.B.I;",
                "void test() { I i; }",
                "Test.java:2:11: compiler.err.cant.access: m.B.I, (compiler.misc.class.file.not.found: m.B$I)",
-               "1 error");
+               "Test.java:2:49: compiler.err.cant.resolve.location: kindname.class, I, , , (compiler.misc.location: kindname.class, Test, null)",
+               "2 errors");
         doTest("import p.B.*;",
                "",
                (String[]) null);
@@ -191,7 +199,8 @@ public class BadClassFileDuringImport {
         doTest("import static m.B.I;",
                "void test() { I i; }",
                "Test.java:2:1: compiler.err.cant.access: m.B.I, (compiler.misc.class.file.not.found: m.B$I)",
-               "1 error");
+               "Test.java:2:56: compiler.err.cant.resolve.location: kindname.class, I, , , (compiler.misc.location: kindname.class, Test, null)",
+               "2 errors");
         doTest("import static p.B.*;",
                "",
                "Test.java:2:1: compiler.err.cant.access: p.B.I, (compiler.misc.bad.class.file.header: B$I.class, (compiler.misc.illegal.start.of.class.file))",

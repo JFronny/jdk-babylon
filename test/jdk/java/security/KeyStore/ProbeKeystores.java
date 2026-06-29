@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2014, 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,11 +23,8 @@
 
 /*
  * @test
- * @bug 8044445 8194307 8207318 8383813
+ * @bug 8044445 8194307 8207318
  * @summary test new methods from JEP-229: Create PKCS12 Keystores by Default
- * @run main ProbeKeystores
- * @run main/othervm -Dkeystore.pkcs12.macAlgorithm=HmacPBESHA256 ProbeKeystores
- * @run main/othervm -Dkeystore.pkcs12.macAlgorithm=PBEWithHmacSHA256 ProbeKeystores
  */
 
 import java.io.*;

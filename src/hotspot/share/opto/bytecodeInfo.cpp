@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1998, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -234,7 +234,7 @@ bool InlineTree::should_not_inline(ciMethod* callee_method, ciMethod* caller_met
     return false;
   }
 
-  if (C->directive()->should_not_inline(callee_method, CompLevel_full_optimization)) {
+  if (C->directive()->should_not_inline(callee_method)) {
     set_msg("disallowed by CompileCommand");
     return true;
   }
@@ -391,13 +391,11 @@ bool InlineTree::try_to_inline(ciMethod* callee_method, ciMethod* caller_method,
 
   // suppress a few checks for accessors and trivial methods
   if (callee_method->code_size() > MaxTrivialSize) {
-    // We don't want to inline a call into a sufficiently large graph. However, this cannot be
-    // decided during parsing because there are more bytecodes in the caller that need parsing, and
-    // determining dead nodes is hard. As a result, we stop parse inlining at a relatively
-    // conservative threshold, and resume during incremental inlining, when there is no more
-    // parsing in the caller, and node liveness is more easily determined.
+
+    // don't inline into giant methods
     if (C->over_inlining_cutoff()) {
-      if (!C->should_delay_after_inlining_cutoff(callee_method, caller_method)) {
+      if ((!callee_method->force_inline() && !caller_method->is_compiled_lambda_form())
+          || !IncrementalInline) {
         set_msg("NodeCountInliningCutoff");
         return false;
       } else {

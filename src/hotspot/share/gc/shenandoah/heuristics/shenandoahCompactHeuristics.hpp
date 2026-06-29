@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2018, 2026, Red Hat, Inc. All rights reserved.
- * Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
+ * Copyright (c) 2018, 2019, Red Hat, Inc. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -34,22 +33,17 @@
  */
 class ShenandoahCompactHeuristics : public ShenandoahHeuristics {
 public:
-  explicit ShenandoahCompactHeuristics(ShenandoahSpaceInfo* space_info);
+  ShenandoahCompactHeuristics(ShenandoahSpaceInfo* space_info);
 
-  bool should_start_gc() override;
-  const char* name() override     { return "Compact"; }
-  bool is_diagnostic() override   { return false; }
-  bool is_experimental() override { return false; }
+  virtual bool should_start_gc();
 
-  void record_cycle_end() override;
+  virtual void choose_collection_set_from_regiondata(ShenandoahCollectionSet* cset,
+                                                     RegionData* data, size_t size,
+                                                     size_t actual_free);
 
-protected:
-  void choose_collection_set_from_regiondata(ShenandoahCollectionSet* cset,
-                                             RegionData* data, size_t size,
-                                             size_t actual_free) override;
-
-private:
-  size_t _bytes_used_at_end_of_gc;
+  virtual const char* name()     { return "Compact"; }
+  virtual bool is_diagnostic()   { return false; }
+  virtual bool is_experimental() { return false; }
 };
 
 #endif // SHARE_GC_SHENANDOAH_HEURISTICS_SHENANDOAHCOMPACTHEURISTICS_HPP

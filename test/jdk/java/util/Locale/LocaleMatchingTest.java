@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2014, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,14 +23,13 @@
 
 /*
  * @test
- * @bug 7069824 8042360 8032842 8175539 8210443 8242010 8276302 8381644
+ * @bug 7069824 8042360 8032842 8175539 8210443 8242010 8276302
  * @summary Verify implementation for Locale matching.
  * @run junit/othervm LocaleMatchingTest
  */
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.ArrayList;
@@ -42,7 +41,6 @@ import java.util.Locale;
 import java.util.Locale.FilteringMode;
 import java.util.Locale.LanguageRange;
 import java.util.Map;
-import java.util.stream.Stream;
 
 import static java.util.Locale.FilteringMode.*;
 import static java.util.Locale.LanguageRange.*;
@@ -202,13 +200,12 @@ public class LocaleMatchingTest {
         };
     }
 
-    static Stream<Arguments> LFilterLookupNPEData() {
-        return Stream.of(
-                // null Locale list
-                Arguments.of(List.of(), null),
-                // null priority list
-                Arguments.of(null, List.of())
-        );
+    static Object[][] LFilterNPEData() {
+        return new Object[][] {
+                // Range, LanguageTags, FilteringMode
+                {"en;q=0.2, ja-*-JP, fr-JP", null, REJECT_EXTENDED_RANGES},
+                {null, "de-DE, en, ja-JP-hepburn, fr, he, ja-Latn-JP", REJECT_EXTENDED_RANGES},
+        };
     }
 
     static Object[][] LFilterTagsData() {
@@ -395,12 +392,19 @@ public class LocaleMatchingTest {
                 ranges, tags, expectedLocales, actualLocales));
     }
 
-    @MethodSource("LFilterLookupNPEData")
+    @MethodSource("LFilterNPEData")
     @ParameterizedTest
-    void testLFilterNPE(List<LanguageRange> priorityList, List<Locale> locList) {
-        assertThrows(NullPointerException.class, () -> Locale.filter(priorityList, locList));
-        // Exercise 3-arg variant
-        assertThrows(NullPointerException.class, () -> Locale.filter(priorityList, locList, REJECT_EXTENDED_RANGES));
+    void testLFilterNPE(String ranges, String tags, FilteringMode mode) {
+        if (ranges == null) {
+            // Ranges are null
+            assertThrows(NullPointerException.class, () -> LanguageRange.parse(ranges));
+        } else {
+            // Tags are null
+            List<LanguageRange> priorityList = LanguageRange.parse(ranges);
+            List<Locale> tagList = generateLocales(tags);
+            assertThrows(NullPointerException.class,
+                    () -> showLocales(Locale.filter(priorityList, tagList, mode)));
+        }
     }
 
     @Test
@@ -429,14 +433,6 @@ public class LocaleMatchingTest {
                         ranges, tags, expectedTags, actualTags));
     }
 
-    @MethodSource("LFilterLookupNPEData")
-    @ParameterizedTest
-    void testLFilterTagsNPE(List<LanguageRange> priorityList, List<String> tagList) {
-        assertThrows(NullPointerException.class, () -> Locale.filterTags(priorityList, tagList));
-        // Exercise 3-arg variant
-        assertThrows(NullPointerException.class, () -> Locale.filterTags(priorityList, tagList, REJECT_EXTENDED_RANGES));
-    }
-
     @Test
     void testLFilterTagsIAE() {
         String ranges = "de-*-DE";
@@ -458,12 +454,6 @@ public class LocaleMatchingTest {
                 ranges, tags, expectedLocale, actualLocale));
     }
 
-    @MethodSource("LFilterLookupNPEData")
-    @ParameterizedTest
-    void testLLookupNPE(List<LanguageRange> priorityList, List<Locale> locList) {
-        assertThrows(NullPointerException.class, () -> Locale.lookup(priorityList, locList));
-    }
-
     @MethodSource("LLookupTagData")
     @ParameterizedTest
     void testLLookupTag(String ranges, String tags, String expectedTag) {
@@ -472,12 +462,6 @@ public class LocaleMatchingTest {
         String actualTag = Locale.lookupTag(priorityList, tagList);
         assertEquals(expectedTag, actualTag, showErrorMessage("    L.LookupTag()",
                 ranges, tags, expectedTag, actualTag));
-    }
-
-    @MethodSource("LFilterLookupNPEData")
-    @ParameterizedTest
-    void testLLookupTagsNPE(List<LanguageRange> priorityList, List<String> tagList) {
-        assertThrows(NullPointerException.class, () -> Locale.lookupTag(priorityList, tagList));
     }
 
     private static List<Locale> generateLocales(String tags) {

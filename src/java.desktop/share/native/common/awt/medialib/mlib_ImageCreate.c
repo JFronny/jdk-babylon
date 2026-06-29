@@ -116,7 +116,6 @@
  *      mlib_ImageSetFormat() sets new value for the image format
  */
 
-#include <string.h>
 #include <stdlib.h>
 #include "mlib_image.h"
 #include "mlib_ImageRowTable.h"
@@ -314,12 +313,10 @@ mlib_image* mlib_ImageCreate(mlib_type type,
       return NULL;
   }
 
-
   data = mlib_malloc(wb * height);
   if (data == NULL) {
     return NULL;
   }
-  memset(data, 0, wb * height);
 
   image = (mlib_image *)mlib_malloc(sizeof(mlib_image));
   if (image == NULL) {

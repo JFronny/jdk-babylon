@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -31,7 +31,6 @@
  * @requires !vm.asan
  * @library /test/lib
  * @modules java.base/jdk.internal.misc
- *          java.base/jdk.internal.platform
  *          java.management
  *          jdk.jartool/sun.tools.jar
  * @build JfrNetwork
@@ -49,7 +48,10 @@ public class TestJFRNetworkEvents {
 
     public static void main(String[] args) throws Exception {
         System.out.println("Test Environment: detected availableCPUs = " + availableCPUs);
-        DockerTestUtils.checkCanTestDocker();
+        if (!DockerTestUtils.canTestDocker()) {
+            return;
+        }
+
         DockerTestUtils.buildJdkContainerImage(imageName);
 
         try {

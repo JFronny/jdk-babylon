@@ -34,14 +34,12 @@ package sun.util.locale;
 
 import jdk.internal.misc.CDS;
 import jdk.internal.util.ReferencedKeySet;
-import jdk.internal.vm.annotation.AOTRuntimeSetup;
-import jdk.internal.vm.annotation.AOTSafeClassInitializer;
+import jdk.internal.util.StaticProperty;
 import jdk.internal.vm.annotation.Stable;
 
 import java.util.StringJoiner;
 import java.util.function.Supplier;
 
-@AOTSafeClassInitializer
 public final class BaseLocale {
 
     public static @Stable BaseLocale[] constantBaseLocales;
@@ -66,7 +64,6 @@ public final class BaseLocale {
             CANADA_FRENCH = 18,
             NUM_CONSTANTS = 19;
     static {
-        // Legacy CDS archive support (to be deprecated)
         CDS.initializeFromArchive(BaseLocale.class);
         BaseLocale[] baseLocales = constantBaseLocales;
         if (baseLocales == null) {
@@ -95,21 +92,13 @@ public final class BaseLocale {
     }
 
     // Interned BaseLocale cache
-    @Stable private static LazyConstant<ReferencedKeySet<BaseLocale>> CACHE;
-    static {
-        runtimeSetup();
-    }
-
-    @AOTRuntimeSetup
-    private static void runtimeSetup() {
-        CACHE =
+    private static final LazyConstant<ReferencedKeySet<BaseLocale>> CACHE =
             LazyConstant.of(new Supplier<>() {
                 @Override
                 public ReferencedKeySet<BaseLocale> get() {
                     return ReferencedKeySet.create(true, ReferencedKeySet.concurrentHashMapSupplier());
                 }
             });
-    }
 
     public static final String SEP = "_";
 
@@ -121,14 +110,16 @@ public final class BaseLocale {
     private @Stable int hash;
 
     /**
-     * Emit the warning message if the system property "java.locale.useOldISOCodes" is
-     * specified.
+     * Boolean for the old ISO language code compatibility.
+     * The system property "java.locale.useOldISOCodes" is not security sensitive,
+     * so no need to ensure privileged access here.
      */
+    private static final boolean OLD_ISO_CODES = StaticProperty.javaLocaleUseOldISOCodes()
+            .equalsIgnoreCase("true");
     static {
-        if (System.getProperty("java.locale.useOldISOCodes") != null) {
-            System.err.println("WARNING: The system property" +
-                " \"java.locale.useOldISOCodes\" is no longer supported." +
-                " Any specified value will be ignored.");
+        if (OLD_ISO_CODES) {
+            System.err.println("WARNING: The use of the system property \"java.locale.useOldISOCodes\"" +
+                " is deprecated. It will be removed in a future release of the JDK.");
         }
     }
 
@@ -175,8 +166,7 @@ public final class BaseLocale {
             }
         }
 
-        // Normalize deprecated ISO 639-1 language codes for Hebrew, Yiddish,
-        // and Indonesian to their current standard forms.
+        // JDK uses deprecated ISO639.1 language codes for he, yi and id
         if (!language.isEmpty()) {
             language = convertOldISOCodes(language);
         }
@@ -193,9 +183,9 @@ public final class BaseLocale {
 
     public static String convertOldISOCodes(String language) {
         return switch (language) {
-            case "iw" -> "he";
-            case "in" -> "id";
-            case "ji" -> "yi";
+            case "he", "iw" -> OLD_ISO_CODES ? "iw" : "he";
+            case "id", "in" -> OLD_ISO_CODES ? "in" : "id";
+            case "yi", "ji" -> OLD_ISO_CODES ? "ji" : "yi";
             default -> language;
         };
     }

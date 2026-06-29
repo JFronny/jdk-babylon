@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -26,7 +26,7 @@
  * @bug 8246774
  * @summary Basic tests for prohibited magic serialPersistentFields
  * @library /test/lib
- * @run junit SerialPersistentFieldsTest
+ * @run testng SerialPersistentFieldsTest
  */
 
 import java.io.ByteArrayInputStream;
@@ -52,6 +52,9 @@ import java.math.BigDecimal;
 
 import jdk.test.lib.ByteCodeLoader;
 import jdk.test.lib.compiler.InMemoryJavaCompiler;
+import org.testng.annotations.BeforeTest;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
 import static java.lang.System.out;
 import static java.lang.classfile.ClassFile.ACC_FINAL;
 import static java.lang.classfile.ClassFile.ACC_PRIVATE;
@@ -62,18 +65,12 @@ import static java.lang.constant.ConstantDescs.CD_void;
 import static java.lang.constant.ConstantDescs.CLASS_INIT_NAME;
 import static java.lang.constant.ConstantDescs.INIT_NAME;
 import static java.lang.constant.ConstantDescs.MTD_void;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 /**
  * Checks that the serialPersistentFields declaration is effectively ignored.
  */
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class SerialPersistentFieldsTest {
 
     ClassLoader serializableRecordLoader;
@@ -91,7 +88,7 @@ public class SerialPersistentFieldsTest {
      *       };
      *   }
      */
-    @BeforeAll
+    @BeforeTest
     public void setup() {
         {  // R1
             byte[] byteCode = InMemoryJavaCompiler.compile("R1",
@@ -177,6 +174,7 @@ public class SerialPersistentFieldsTest {
         return newRecord("R5", new Class[]{int.class}, new Object[]{x});
     }
 
+    @DataProvider(name = "recordInstances")
     public Object[][] recordInstances() {
         return new Object[][] {
             new Object[] { newR1()                                },
@@ -187,15 +185,14 @@ public class SerialPersistentFieldsTest {
         };
     }
 
-    @ParameterizedTest
-    @MethodSource("recordInstances")
+    @Test(dataProvider = "recordInstances")
     public void roundTrip(Object objToSerialize) throws Exception {
         out.println("\n---");
         out.println("serializing : " + objToSerialize);
         var objDeserialized = serializeDeserialize(objToSerialize);
         out.println("deserialized: " + objDeserialized);
-        assertEquals(objDeserialized, objToSerialize);
         assertEquals(objToSerialize, objDeserialized);
+        assertEquals(objDeserialized, objToSerialize);
     }
 
     <T> byte[] serialize(T obj) throws IOException {
@@ -293,8 +290,7 @@ public class SerialPersistentFieldsTest {
     // -- infra sanity --
 
     /** Checks to ensure correct operation of the test's generation logic. */
-    @ParameterizedTest
-    @MethodSource("recordInstances")
+    @Test(dataProvider = "recordInstances")
     public void wellFormedGeneratedClasses(Object obj) throws Exception {
         out.println("\n---");
         out.println(obj);

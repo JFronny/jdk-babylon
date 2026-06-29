@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2023, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -20,18 +20,9 @@
  * or visit www.oracle.com if you need additional information or have any
  * questions.
  */
-import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
-import java.security.KeyPair;
-import java.security.PrivateKey;
-import java.security.Provider;
-import java.security.PublicKey;
-import java.security.Signature;
-import java.security.spec.AlgorithmParameterSpec;
-import java.security.spec.MGF1ParameterSpec;
-import java.security.spec.PSSParameterSpec;
-import java.util.ArrayList;
-import java.util.List;
+import java.security.*;
+import java.security.interfaces.*;
+import java.security.spec.*;
 
 import jtreg.SkippedException;
 
@@ -52,7 +43,7 @@ public class KeyAndParamCheckForPSS extends PKCS11Test {
         main(new KeyAndParamCheckForPSS(), args);
     }
 
-    private static final List<String> skippedAlgs = new ArrayList<>();
+    private static boolean skipTest = true;
 
     @Override
     public void main(Provider p) throws Exception {
@@ -82,8 +73,8 @@ public class KeyAndParamCheckForPSS extends PKCS11Test {
         runTest(p, 1040, "SHA3-512", "SHA3-384");
         runTest(p, 1040, "SHA3-512", "SHA3-512");
 
-        if (!skippedAlgs.isEmpty()) {
-            throw new SkippedException("Tests Skipped: " + skippedAlgs);
+        if (skipTest) {
+            throw new SkippedException("Test Skipped");
         }
     }
 
@@ -93,17 +84,7 @@ public class KeyAndParamCheckForPSS extends PKCS11Test {
         System.out.println("Testing " + hashAlg + " and MGF1" + mgfHashAlg);
         PSSUtil.AlgoSupport s = PSSUtil.isHashSupported(p, hashAlg, mgfHashAlg);
         if (s == PSSUtil.AlgoSupport.NO) {
-            System.out.printf("=> Skip; no support keysize: %d, hash alg: %s, mgf Hash Alg: %s%n",
-                    keySize,
-                    hashAlg,
-                    mgfHashAlg);
-            skippedAlgs.add(
-                    String.format(
-                            "[keysize: %s, hash alg: %s, mgf Hash Alg: %s]",
-                            keySize,
-                            hashAlg,
-                            mgfHashAlg)
-            );
+            System.out.println("=> Skip; no support");
             return;
         }
 
@@ -127,6 +108,7 @@ public class KeyAndParamCheckForPSS extends PKCS11Test {
             sig.setParameter(paramsGood);
             sig.initSign(priv);
             // algorithm support confirmed
+            skipTest = false;
         } catch (Exception ex) {
             if (s == PSSUtil.AlgoSupport.MAYBE) {
                 // confirmed to be unsupported; skip the rest of the test

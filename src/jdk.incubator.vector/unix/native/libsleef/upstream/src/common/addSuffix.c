@@ -1,4 +1,4 @@
-//   Copyright Naoki Shibata and contributors 2010 - 2025.
+//   Copyright Naoki Shibata and contributors 2010 - 2021.
 // Distributed under the Boost Software License, Version 1.0.
 //    (See accompanying file LICENSE.txt or copy at
 //          http://www.boost.org/LICENSE_1_0.txt)
@@ -207,18 +207,7 @@ int main(int argc, char **argv) {
     nkeywords++;
     if (nkeywords >= nalloc) {
       nalloc *= 2;
-      char ** tmp = realloc(keywords, sizeof(char *) * nalloc);
-      if (tmp == NULL) {
-        // free keywords if realloc fails
-        // otherwise address is lost.
-        free(keywords);
-        fclose(fp);
-        fprintf(stderr, "Failed realloc!\n");
-        exit(-1);
-      }
-      else {
-        keywords = tmp;
-      }
+      keywords = realloc(keywords, sizeof(char *) * nalloc);
     }
   }
 
@@ -238,10 +227,6 @@ int main(int argc, char **argv) {
   doit(fp);
 
   fclose(fp);
-
-  for(int i=0;i<nkeywords;i++) free(keywords[i]);
-
-  free(keywords);
 
   exit(0);
 }

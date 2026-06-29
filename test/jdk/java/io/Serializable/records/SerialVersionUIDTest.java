@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,7 +25,7 @@
  * @test
  * @bug 8246774
  * @summary Basic tests for SUID in the serial stream
- * @run junit SerialVersionUIDTest
+ * @run testng SerialVersionUIDTest
  */
 
 import java.io.ByteArrayInputStream;
@@ -35,28 +35,24 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.LongStream;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
 import static java.io.ObjectStreamConstants.*;
 import static java.lang.System.out;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class SerialVersionUIDTest {
 
     record R1 () implements Serializable {
-        @Serial
         private static final long serialVersionUID = 1L;
     }
 
     record R2 (int x, int y) implements Serializable {
-        @Serial
         private static final long serialVersionUID = 0L;
     }
 
@@ -65,11 +61,11 @@ public class SerialVersionUIDTest {
     record R4 (String s) implements Serializable { }
 
     record R5 (long l) implements Serializable {
-        @Serial
         private static final long serialVersionUID = 5678L;
     }
 
-    public static Object[][] recordObjects() {
+    @DataProvider(name = "recordObjects")
+    public Object[][] recordObjects() {
         return new Object[][] {
             new Object[] { new R1(),        1L    },
             new Object[] { new R2(1, 2),    0L    },
@@ -82,8 +78,7 @@ public class SerialVersionUIDTest {
     /**
      * Tests that a declared SUID for a record class is inserted into the stream.
      */
-    @ParameterizedTest
-    @MethodSource("recordObjects")
+    @Test(dataProvider = "recordObjects")
     public void testSerialize(Object objectToSerialize, long expectedUID)
         throws Exception
     {
@@ -95,17 +90,18 @@ public class SerialVersionUIDTest {
         DataInputStream dis = new DataInputStream(bais);
 
         // sanity
-        assertEquals(STREAM_MAGIC, dis.readShort());
-        assertEquals(STREAM_VERSION, dis.readShort());
-        assertEquals(TC_OBJECT, dis.readByte());
-        assertEquals(TC_CLASSDESC, dis.readByte());
-        assertEquals(objectToSerialize.getClass().getName(), dis.readUTF());
+        assertEquals(dis.readShort(), STREAM_MAGIC);
+        assertEquals(dis.readShort(), STREAM_VERSION);
+        assertEquals(dis.readByte(), TC_OBJECT);
+        assertEquals(dis.readByte(), TC_CLASSDESC);
+        assertEquals(dis.readUTF(), objectToSerialize.getClass().getName());
 
         // verify that the UID is as expected
-        assertEquals(expectedUID, dis.readLong());
+        assertEquals(dis.readLong(), expectedUID);
     }
 
-    public static Object[][] recordClasses() {
+    @DataProvider(name = "recordClasses")
+    public Object[][] recordClasses() {
         List<Object[]> list = new ArrayList<>();
         List<Class<?>> recordClasses = List.of(R1.class, R2.class, R3.class, R4.class, R5.class);
         LongStream.of(0L, 1L, 100L, 10_000L, 1_000_000L).forEach(suid ->
@@ -119,15 +115,14 @@ public class SerialVersionUIDTest {
      * Tests that matching of the serialVersionUID values ( stream value
      * and runtime class value ) is waived for record classes.
      */
-    @ParameterizedTest
-    @MethodSource("recordClasses")
+    @Test(dataProvider = "recordClasses")
     public void testSerializeFromClass(Class<? extends Record> cl, long suid)
         throws Exception
     {
         out.println("\n---");
         byte[] bytes = byteStreamFor(cl.getName(), suid);
         Object obj = deserialize(bytes);
-        assertEquals(cl, obj.getClass());
+        assertEquals(obj.getClass(), cl);
         assertTrue(obj.getClass().isRecord());
     }
 

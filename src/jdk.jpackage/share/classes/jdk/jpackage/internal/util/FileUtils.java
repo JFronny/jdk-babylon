@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2024, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import jdk.internal.util.OperatingSystem;
+import jdk.jpackage.internal.util.function.ExceptionBox;
 import jdk.jpackage.internal.util.function.ThrowingConsumer;
 
 public final class FileUtils {
@@ -57,6 +58,12 @@ public final class FileUtils {
 
     public static void copyRecursive(Path src, Path dest, CopyOption... options)
             throws IOException {
+        copyRecursive(src, dest, List.of(), options);
+    }
+
+    public static void copyRecursive(Path src, Path dest,
+            final List<Path> excludes, CopyOption... options)
+            throws IOException {
 
         List<CopyAction> copyActions = new ArrayList<>();
 
@@ -65,18 +72,24 @@ public final class FileUtils {
                 @Override
                 public FileVisitResult preVisitDirectory(final Path dir,
                         final BasicFileAttributes attrs) {
-                    copyActions.add(new CopyAction(null, dest.resolve(src.relativize(dir))));
-                    return FileVisitResult.CONTINUE;
+                    if (isPathMatch(dir, excludes)) {
+                        return FileVisitResult.SKIP_SUBTREE;
+                    } else {
+                        copyActions.add(new CopyAction(null, dest.resolve(src.relativize(dir))));
+                        return FileVisitResult.CONTINUE;
+                    }
                 }
 
                 @Override
                 public FileVisitResult visitFile(final Path file,
                         final BasicFileAttributes attrs) {
-                    copyActions.add(new CopyAction(file, dest.resolve(src.relativize(file))));
+                    if (!isPathMatch(file, excludes)) {
+                        copyActions.add(new CopyAction(file, dest.resolve(src.relativize(file))));
+                    }
                     return FileVisitResult.CONTINUE;
                 }
             });
-        } else {
+        } else if (!isPathMatch(src, excludes)) {
             Optional.ofNullable(dest.getParent()).ifPresent(dstDir -> {
                 copyActions.add(new CopyAction(null, dstDir));
             });
@@ -99,6 +112,10 @@ public final class FileUtils {
         } catch (NotLinkException ex) {
             throw ex;
         }
+    }
+
+    private static boolean isPathMatch(Path what, List<Path> paths) {
+        return paths.stream().anyMatch(what::endsWith);
     }
 
     private static record CopyAction(Path src, Path dest) {
@@ -153,13 +170,15 @@ public final class FileUtils {
             }
         }
 
-        private void runActionOnPath(ThrowingConsumer<Path, IOException> action, Path path) {
+        private void runActionOnPath(ThrowingConsumer<Path> action, Path path) {
             try {
                 action.accept(path);
             } catch (IOException ex) {
                 if (this.ex == null) {
                     this.ex = ex;
                 }
+            } catch (Throwable t) {
+                throw ExceptionBox.rethrowUnchecked(t);
             }
         }
 

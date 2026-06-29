@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -22,99 +22,14 @@
  *
  */
 
-#include "cppstdlib/new.hpp"
 #include "cppstdlib/type_traits.hpp"
 #include "metaprogramming/primitiveConversions.hpp"
 #include "runtime/atomic.hpp"
-#include "runtime/os.hpp"
 
 #include "unittest.hpp"
 
 // These tests of Atomic<T> only verify functionality.  They don't verify
 // atomicity.
-
-template<typename T>
-struct AtomicInitializationTestSupport {
-  struct Holder {
-    Atomic<T> _explicitly_initialized;
-    Atomic<T> _default_initialized;
-    Atomic<T> _value_initialized;
-
-    Holder()
-      : _explicitly_initialized(T()),
-        /* _default_initialized */
-        _value_initialized{}
-    {}
-  };
-
-  struct HolderNoConstructor {
-    Atomic<T> _default_initialized;
-  };
-
-  void test() {
-    T t = T();
-
-    {
-      Holder h;
-
-      EXPECT_EQ(t, h._explicitly_initialized.load_relaxed());
-      EXPECT_EQ(t, h._default_initialized.load_relaxed());
-      EXPECT_EQ(t, h._value_initialized.load_relaxed());
-    }
-
-    {
-      Holder h{};
-
-      EXPECT_EQ(t, h._explicitly_initialized.load_relaxed());
-      EXPECT_EQ(t, h._default_initialized.load_relaxed());
-      EXPECT_EQ(t, h._value_initialized.load_relaxed());
-    }
-
-    {
-      alignas(Holder) char mem[sizeof(Holder)];
-      memset(mem, 0xFF, sizeof(Holder));
-      Holder* h = new (mem) Holder();
-
-      EXPECT_EQ(t, h->_explicitly_initialized.load_relaxed());
-      EXPECT_EQ(t, h->_default_initialized.load_relaxed());
-      EXPECT_EQ(t, h->_value_initialized.load_relaxed());
-    }
-
-    // No-constructor variant
-
-    {
-      HolderNoConstructor h;
-
-      EXPECT_EQ(t, h._default_initialized.load_relaxed());
-    }
-
-    {
-      HolderNoConstructor h{};
-
-      EXPECT_EQ(t, h._default_initialized.load_relaxed());
-    }
-
-    {
-      alignas(HolderNoConstructor) char mem[sizeof(HolderNoConstructor)];
-      memset(mem, 0xFF, sizeof(HolderNoConstructor));
-      HolderNoConstructor* h = new (mem) HolderNoConstructor();
-
-      EXPECT_EQ(t, h->_default_initialized.load_relaxed());
-    }
-  }
-};
-
-TEST_VM(AtomicInitializationTest, byte) {
-  AtomicInitializationTestSupport<char>().test();
-}
-
-TEST_VM(AtomicInitializationTest, integer) {
-  AtomicInitializationTestSupport<int32_t>().test();
-}
-
-TEST_VM(AtomicInitializationTest, pointer) {
-  AtomicInitializationTestSupport<void*>().test();
-}
 
 template<typename T>
 struct AtomicIntegerArithmeticTestSupport {
@@ -186,10 +101,10 @@ TEST_VM(AtomicIntegerTest, arith_uint64) {
 }
 
 template<typename T>
-struct AtomicByteAndIntegerXchgTestSupport {
+struct AtomicIntegerXchgTestSupport {
   Atomic<T> _test_value;
 
-  AtomicByteAndIntegerXchgTestSupport() : _test_value{} {}
+  AtomicIntegerXchgTestSupport() : _test_value{} {}
 
   void test() {
     T zero = 0;
@@ -201,18 +116,13 @@ struct AtomicByteAndIntegerXchgTestSupport {
   }
 };
 
-TEST_VM(AtomicIntegerTest, xchg_char) {
-  using Support = AtomicByteAndIntegerXchgTestSupport<char>;
-  Support().test();
-}
-
 TEST_VM(AtomicIntegerTest, xchg_int32) {
-  using Support = AtomicByteAndIntegerXchgTestSupport<int32_t>;
+  using Support = AtomicIntegerXchgTestSupport<int32_t>;
   Support().test();
 }
 
 TEST_VM(AtomicIntegerTest, xchg_int64) {
-  using Support = AtomicByteAndIntegerXchgTestSupport<int64_t>;
+  using Support = AtomicIntegerXchgTestSupport<int64_t>;
   Support().test();
 }
 
@@ -243,45 +153,18 @@ TEST_VM(AtomicIntegerTest, cmpxchg_int32) {
 
 TEST_VM(AtomicIntegerTest, cmpxchg_int64) {
   // Check if 64-bit atomics are available on the machine.
+  if (!VM_Version::supports_cx8()) return;
+
   using Support = AtomicIntegerCmpxchgTestSupport<int64_t>;
   Support().test();
 }
 
-template<typename T>
-struct AtomicIntegerCmpsetTestSupport {
-  Atomic<T> _test_value;
-
-  AtomicIntegerCmpsetTestSupport() : _test_value{} {}
-
-  void test() {
-    T zero = 0;
-    T five = 5;
-    T ten = 10;
-    _test_value.store_relaxed(zero);
-    EXPECT_FALSE(_test_value.compare_set(five, ten));
-    EXPECT_EQ(zero, _test_value.load_relaxed());
-    EXPECT_TRUE(_test_value.compare_set(zero, ten));
-    EXPECT_EQ(ten, _test_value.load_relaxed());
-  }
-};
-
-TEST_VM(AtomicIntegerTest, cmpset_int32) {
-  using Support = AtomicIntegerCmpsetTestSupport<int32_t>;
-  Support().test();
-}
-
-TEST_VM(AtomicIntegerTest, cmpset_int64) {
-  // Check if 64-bit atomics are available on the machine.
-  using Support = AtomicIntegerCmpsetTestSupport<int64_t>;
-  Support().test();
-}
-
-struct AtomicXchgAndCmpxchg1ByteStressSupport {
+struct AtomicCmpxchg1ByteStressSupport {
   char _default_val;
   int  _base;
   Atomic<char> _array[7+32+7];
 
-  AtomicXchgAndCmpxchg1ByteStressSupport() : _default_val(0x7a), _base(7) {}
+  AtomicCmpxchg1ByteStressSupport() : _default_val(0x7a), _base(7) {}
 
   void validate(char val, char val2, int index) {
     for (int i = 0; i < 7; i++) {
@@ -299,60 +182,35 @@ struct AtomicXchgAndCmpxchg1ByteStressSupport {
     }
   }
 
-  template <typename Exchange>
   void test_index(int index) {
-    Exchange exchange;
     char one = 1;
-    exchange(_array[index], _default_val, one);
+    _array[index].compare_exchange(_default_val, one);
     validate(_default_val, one, index);
 
-    exchange(_array[index], one, _default_val);
+    _array[index].compare_exchange(one, _default_val);
     validate(_default_val, _default_val, index);
   }
 
-  template <typename Exchange>
   void test() {
     for (size_t i = 0; i < ARRAY_SIZE(_array); ++i) {
       _array[i].store_relaxed(_default_val);
     }
     for (int i = _base; i < (_base+32); i++) {
-      test_index<Exchange>(i);
+      test_index(i);
     }
-  }
-  void test_exchange() {
-    struct StressWithExchange {
-      void operator()(Atomic<char>& atomic, char compare_value, char new_value) {
-        EXPECT_EQ(compare_value, atomic.exchange(new_value));
-      }
-    };
-    test<StressWithExchange>();
-  }
-
-  void test_compare_exchange() {
-    struct StressWithCompareExchange {
-      void operator()(Atomic<char>& atomic, char compare_value, char new_value) {
-        EXPECT_EQ(compare_value, atomic.compare_exchange(compare_value, new_value));
-      }
-    };
-    test<StressWithCompareExchange>();
   }
 };
 
-TEST_VM(AtomicByteTest, stress_xchg) {
-  AtomicXchgAndCmpxchg1ByteStressSupport support;
-  support.test_exchange();
-}
-
-TEST_VM(AtomicByteTest, stress_cmpxchg) {
-  AtomicXchgAndCmpxchg1ByteStressSupport support;
-  support.test_compare_exchange();
+TEST_VM(AtomicCmpxchg1Byte, stress) {
+  AtomicCmpxchg1ByteStressSupport support;
+  support.test();
 }
 
 template<typename T>
-struct AtomicTestSupport {
+struct AtomicEnumTestSupport {
   Atomic<T> _test_value;
 
-  AtomicTestSupport() : _test_value{} {}
+  AtomicEnumTestSupport() : _test_value{} {}
 
   void test_store_load(T value) {
     EXPECT_NE(value, _test_value.load_relaxed());
@@ -375,13 +233,6 @@ struct AtomicTestSupport {
     EXPECT_EQ(value1, _test_value.exchange(value2));
     EXPECT_EQ(value2, _test_value.load_relaxed());
   }
-
-  template <T B, T C>
-  static void test() {
-    AtomicTestSupport().test_store_load(B);
-    AtomicTestSupport().test_cmpxchg(B, C);
-    AtomicTestSupport().test_xchg(B, C);
-  }
 };
 
 namespace AtomicEnumTestUnscoped {       // Scope the enumerators.
@@ -390,7 +241,11 @@ namespace AtomicEnumTestUnscoped {       // Scope the enumerators.
 
 TEST_VM(AtomicEnumTest, unscoped_enum) {
   using namespace AtomicEnumTestUnscoped;
-  AtomicTestSupport<TestEnum>::test<B, C>();
+  using Support = AtomicEnumTestSupport<TestEnum>;
+
+  Support().test_store_load(B);
+  Support().test_cmpxchg(B, C);
+  Support().test_xchg(B, C);
 }
 
 enum class AtomicEnumTestScoped { A, B, C };
@@ -398,35 +253,11 @@ enum class AtomicEnumTestScoped { A, B, C };
 TEST_VM(AtomicEnumTest, scoped_enum) {
   const AtomicEnumTestScoped B = AtomicEnumTestScoped::B;
   const AtomicEnumTestScoped C = AtomicEnumTestScoped::C;
-  AtomicTestSupport<AtomicEnumTestScoped>::test<B, C>();
-}
+  using Support = AtomicEnumTestSupport<AtomicEnumTestScoped>;
 
-enum class AtomicEnumTestScoped64Bit : uint64_t { A, B, C };
-
-TEST_VM(AtomicEnumTest, scoped_enum_64_bit) {
-  const AtomicEnumTestScoped64Bit B = AtomicEnumTestScoped64Bit::B;
-  const AtomicEnumTestScoped64Bit C = AtomicEnumTestScoped64Bit::C;
-  AtomicTestSupport<AtomicEnumTestScoped64Bit>::test<B, C>();
-}
-
-enum class AtomicEnumTestScoped8Bit : uint8_t { A, B, C };
-
-TEST_VM(AtomicEnumTest, scoped_enum_8_bit) {
-  const AtomicEnumTestScoped8Bit B = AtomicEnumTestScoped8Bit::B;
-  const AtomicEnumTestScoped8Bit C = AtomicEnumTestScoped8Bit::C;
-  AtomicTestSupport<AtomicEnumTestScoped8Bit>::test<B, C>();
-}
-
-TEST_VM(AtomicByteTest, char_test) {
-  const char B = 0xB;
-  const char C = 0xC;
-  AtomicTestSupport<char>::test<B, C>();
-}
-
-TEST_VM(AtomicByteTest, bool_test) {
-  const bool B = true;
-  const bool C = false;
-  AtomicTestSupport<bool>::test<B, C>();
+  Support().test_store_load(B);
+  Support().test_cmpxchg(B, C);
+  Support().test_xchg(B, C);
 }
 
 template<typename T>
@@ -683,6 +514,40 @@ struct PrimitiveConversions::Translate<TranslatedAtomicByteObject>
   static Value recover(Decayed x) { return Value(x); }
 };
 
+// Test whether Atomic<T> has exchange().
+// Note: This is intentionally a different implementation from what is used
+// by the atomic translated type to decide whether to provide exchange().
+// The intent is to make related testing non-tautological.
+// The two implementations must agree; it's a bug if they don't.
+template<typename T>
+class AtomicTypeHasExchange {
+  template<typename U,
+           typename AU = Atomic<U>,
+           typename = decltype(declval<AU>().exchange(declval<U>()))>
+  static char* test(int);
+
+  template<typename> static char test(...);
+
+  using test_type = decltype(test<T>(0));
+
+public:
+  static constexpr bool value = std::is_pointer_v<test_type>;
+};
+
+// Unit tests for AtomicTypeHasExchange.
+static_assert(AtomicTypeHasExchange<int>::value);
+static_assert(AtomicTypeHasExchange<int*>::value);
+static_assert(AtomicTypeHasExchange<TranslatedAtomicTestObject1>::value);
+static_assert(AtomicTypeHasExchange<TranslatedAtomicTestObject2>::value);
+static_assert(!AtomicTypeHasExchange<uint8_t>::value);
+
+// Verify translated byte type *doesn't* have exchange.
+static_assert(!AtomicTypeHasExchange<TranslatedAtomicByteObject>::value);
+
+// Verify that explicit instantiation doesn't attempt to reference the
+// non-existent exchange of the atomic decayed type.
+template class AtomicImpl::Atomic<TranslatedAtomicByteObject>;
+
 template<typename T>
 static void test_atomic_translated_type() {
   // This works even if T is not default constructible.
@@ -697,8 +562,10 @@ static void test_atomic_translated_type() {
                                                               Translated::recover(10))));
   EXPECT_EQ(10, Translated::decay(_test_value.load_relaxed()));
 
-  EXPECT_EQ(10, Translated::decay(_test_value.exchange(Translated::recover(20))));
-  EXPECT_EQ(20, Translated::decay(_test_value.load_relaxed()));
+  if constexpr (AtomicTypeHasExchange<T>::value) {
+    EXPECT_EQ(10, Translated::decay(_test_value.exchange(Translated::recover(20))));
+    EXPECT_EQ(20, Translated::decay(_test_value.load_relaxed()));
+  }
 }
 
 TEST_VM(AtomicTranslatedTypeTest, int_test) {

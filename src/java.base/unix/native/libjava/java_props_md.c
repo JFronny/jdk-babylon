@@ -442,7 +442,7 @@ GetJavaProperties(JNIEnv *env)
 
     /* Determine the language, country, variant, and encoding from the host,
      * and store these in the user.language, user.country, user.variant and
-     * native.encoding system properties. */
+     * file.encoding system properties. */
     setlocale(LC_ALL, "");
     if (ParseLocale(env, LC_CTYPE,
                     &(sprops.format_language),

@@ -137,7 +137,7 @@ public class TestSetupAOT {
         String jlinkOutput = tmpDir + File.separator + "jlinkOutput";
 
         execTool("jlink", "--help")
-            .shouldContain("Compress all resources in the output image");
+            .shouldContain("Compression to use in compressing resources");
         execTool("jlink", "--list-plugins")
             .shouldContain("List of available plugins",
                            "--generate-cds-archive ");

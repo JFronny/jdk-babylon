@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1999, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -59,7 +59,6 @@ private:
   bool                   _has_nonstatic_concrete_methods;
   bool                   _is_hidden;
   bool                   _is_record;
-  bool                   _trust_final_fields;
   bool                   _has_trusted_loader;
 
   ciFlags                _flags;
@@ -83,7 +82,7 @@ private:
   bool compute_injected_fields_helper();
   void compute_transitive_interfaces();
 
-  ciField* get_nonstatic_field_by_offset(int field_offset);
+  ciField* get_non_static_field_by_offset(int field_offset);
 
 protected:
   ciInstanceKlass(Klass* k);
@@ -106,36 +105,43 @@ protected:
 
   bool is_shared() { return _is_shared; }
 
-  InstanceKlass::ClassState compute_init_state();
+  void compute_shared_init_state();
   bool compute_shared_has_subklass();
   int  compute_nonstatic_fields();
   GrowableArray<ciField*>* compute_nonstatic_fields_impl(GrowableArray<ciField*>* super_fields);
   bool compute_has_trusted_loader();
 
+  // Update the init_state for shared klasses
+  void update_if_shared(InstanceKlass::ClassState expected) {
+    if (_is_shared && _init_state != expected) {
+      if (is_loaded()) compute_shared_init_state();
+    }
+  }
+
 public:
   // Has this klass been initialized?
   bool                   is_initialized() {
-    InstanceKlass::ClassState state = compute_init_state();
-    return state == InstanceKlass::fully_initialized;
+    update_if_shared(InstanceKlass::fully_initialized);
+    return _init_state == InstanceKlass::fully_initialized;
   }
   bool                   is_not_initialized() {
-    InstanceKlass::ClassState state = compute_init_state();
-    return state < InstanceKlass::being_initialized;
+    update_if_shared(InstanceKlass::fully_initialized);
+    return _init_state < InstanceKlass::being_initialized;
   }
   // Is this klass being initialized?
   bool                   is_being_initialized() {
-    InstanceKlass::ClassState state = compute_init_state();
-    return state == InstanceKlass::being_initialized;
+    update_if_shared(InstanceKlass::being_initialized);
+    return _init_state == InstanceKlass::being_initialized;
   }
   // Has this klass been linked?
   bool                   is_linked() {
-    InstanceKlass::ClassState state = compute_init_state();
-    return state >= InstanceKlass::linked;
+    update_if_shared(InstanceKlass::linked);
+    return _init_state >= InstanceKlass::linked;
   }
   // Is this klass in error state?
   bool                   is_in_error_state() {
-    InstanceKlass::ClassState state = compute_init_state();
-    return state == InstanceKlass::initialization_error;
+    update_if_shared(InstanceKlass::initialization_error);
+    return _init_state == InstanceKlass::initialization_error;
   }
 
   // General klass information.
@@ -143,10 +149,6 @@ public:
     assert(is_loaded(), "must be loaded");
     return _flags;
   }
-
-  // Fetch Klass::access_flags.
-  jint                   access_flags() { return flags().as_int(); }
-
   bool                   has_finalizer()  {
     assert(is_loaded(), "must be loaded");
     return _has_finalizer; }
@@ -201,14 +203,9 @@ public:
     return _is_record;
   }
 
-  bool trust_final_fields() const {
-    return _trust_final_fields;
-  }
-
   ciInstanceKlass* get_canonical_holder(int offset);
   ciField* get_field_by_offset(int field_offset, bool is_static);
   ciField* get_field_by_name(ciSymbol* name, ciSymbol* signature, bool is_static);
-  ciField* get_injected_instance_field_by_name(ciSymbol* name, ciSymbol* signature);
   BasicType get_field_type_by_offset(int field_offset, bool is_static);
 
   // total number of nonstatic fields (including inherited):

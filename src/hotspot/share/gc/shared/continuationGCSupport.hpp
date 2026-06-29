@@ -28,8 +28,6 @@
 #include "memory/allStatic.hpp"
 #include "oops/oopsHierarchy.hpp"
 
-class Klass;
-
 class ContinuationGCSupport : public AllStatic {
 public:
   // Relativize the given oop if it is a stack chunk.
@@ -37,7 +35,6 @@ public:
   // Relativize and transform to use a bitmap for future oop iteration for the
   // given oop if it is a stack chunk.
   static void transform_stack_chunk(oop obj);
-  static void transform_stack_chunk(oop obj, Klass* klass);
 };
 
 #endif // SHARE_GC_SHARED_CONTINUATIONGCSUPPORT_HPP

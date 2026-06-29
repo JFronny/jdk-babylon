@@ -716,8 +716,8 @@ public final class UnixPrintJob implements CancelablePrintJob {
         /* add the user name to the job */
         String userName = System.getProperty("user.name");
         if (userName == null || userName.isEmpty()) {
-            RequestingUserName ruName = (reqSet != null) ?
-                (RequestingUserName)reqSet.get(RequestingUserName.class) : null;
+            RequestingUserName ruName =
+                (RequestingUserName)reqSet.get(RequestingUserName.class);
             if (ruName != null) {
                 jobAttrSet.add(
                     new JobOriginatingUserName(ruName.getValue(),

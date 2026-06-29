@@ -30,7 +30,8 @@
  *
  * @requires vm.flagless
  * @requires os.arch=="aarch64" & vm.debug == true &
- *           vm.flavor == "server" & vm.gc.Parallel
+ *           vm.flavor == "server" & !vm.graal.enabled &
+ *           vm.gc.Parallel
  *
  * @build compiler.c2.aarch64.TestVolatiles
  *        compiler.c2.aarch64.TestVolatileLoad

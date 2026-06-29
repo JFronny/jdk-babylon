@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -64,6 +64,9 @@
 #endif
 #ifdef COMPILER2
 #include "opto/runtime.hpp"
+#endif
+#if INCLUDE_JVMCI
+#include "jvmci/jvmciJavaClasses.hpp"
 #endif
 
 #define __ masm->
@@ -179,14 +182,14 @@ class RegisterSaver {
 OopMap* RegisterSaver::save_live_registers(MacroAssembler* masm, int additional_frame_words, int* total_frame_words, bool save_wide_vectors) {
   int off = 0;
   int num_xmm_regs = XMMRegister::available_xmm_registers();
-#ifdef COMPILER2
+#if COMPILER2_OR_JVMCI
   if (save_wide_vectors && UseAVX == 0) {
     save_wide_vectors = false; // vectors larger than 16 byte long are supported only with AVX
   }
   assert(!save_wide_vectors || MaxVectorSize <= 64, "Only up to 64 byte long vectors are supported");
 #else
-  save_wide_vectors = false; // vectors are generated only by C2
-#endif // COMPILER2
+  save_wide_vectors = false; // vectors are generated only by C2 and JVMCI
+#endif
 
   // Always make the frame size 16-byte aligned, both vector and non vector stacks are always allocated
   int frame_size_in_bytes = align_up(reg_save_size*BytesPerInt, num_xmm_regs);
@@ -231,13 +234,13 @@ OopMap* RegisterSaver::save_live_registers(MacroAssembler* masm, int additional_
       for (int n = 16; n < num_xmm_regs; n++) {
         __ evmovdqul(Address(rsp, base_addr+(off++*64)), as_XMMRegister(n), vector_len);
       }
-#ifdef COMPILER2
+#if COMPILER2_OR_JVMCI
       base_addr = XSAVE_AREA_OPMASK_BEGIN;
       off = 0;
       for(int n = 0; n < KRegister::number_of_registers; n++) {
         __ kmov(Address(rsp, base_addr+(off++*8)), as_KRegister(n));
       }
-#endif // COMPILER2
+#endif
     }
   } else {
     if (VM_Version::supports_evex()) {
@@ -248,17 +251,17 @@ OopMap* RegisterSaver::save_live_registers(MacroAssembler* masm, int additional_
       for (int n = 16; n < num_xmm_regs; n++) {
         __ evmovdqul(Address(rsp, base_addr+(off++*64)), as_XMMRegister(n), vector_len);
       }
-#ifdef COMPILER2
+#if COMPILER2_OR_JVMCI
       base_addr = XSAVE_AREA_OPMASK_BEGIN;
       off = 0;
       for(int n = 0; n < KRegister::number_of_registers; n++) {
         __ kmov(Address(rsp, base_addr+(off++*8)), as_KRegister(n));
       }
-#endif // COMPILER2
+#endif
     }
   }
 
-#ifdef COMPILER2
+#if COMPILER2_OR_JVMCI
   if (UseAPX) {
       int base_addr = XSAVE_AREA_EGPRS;
       off = 0;
@@ -266,7 +269,7 @@ OopMap* RegisterSaver::save_live_registers(MacroAssembler* masm, int additional_
         __ movq(Address(rsp, base_addr+(off++*8)), as_Register(n));
       }
   }
-#endif // COMPILER2
+#endif
 
   __ vzeroupper();
   if (frame::arg_reg_save_area_bytes != 0) {
@@ -339,7 +342,7 @@ OopMap* RegisterSaver::save_live_registers(MacroAssembler* masm, int additional_
     }
   }
 
-#ifdef COMPILER2
+#if COMPILER2_OR_JVMCI
   if (save_wide_vectors) {
     // Save upper half of YMM registers(0..15)
     off = ymm0_off;
@@ -360,7 +363,7 @@ OopMap* RegisterSaver::save_live_registers(MacroAssembler* masm, int additional_
       }
     }
   }
-#endif // COMPILER2
+#endif // COMPILER2_OR_JVMCI
 
   // %%% These should all be a waste but we'll keep things as they were for now
   if (true) {
@@ -428,14 +431,14 @@ void RegisterSaver::restore_live_registers(MacroAssembler* masm, bool restore_wi
     __ addptr(rsp, frame::arg_reg_save_area_bytes);
   }
 
-#ifdef COMPILER2
+#if COMPILER2_OR_JVMCI
   if (restore_wide_vectors) {
     assert(UseAVX > 0, "Vectors larger than 16 byte long are supported only with AVX");
     assert(MaxVectorSize <= 64, "Only up to 64 byte long vectors are supported");
   }
 #else
   assert(!restore_wide_vectors, "vectors are generated only by C2");
-#endif // COMPILER2
+#endif
 
   __ vzeroupper();
 
@@ -459,13 +462,13 @@ void RegisterSaver::restore_live_registers(MacroAssembler* masm, bool restore_wi
       for (int n = 16; n < num_xmm_regs; n++) {
         __ evmovdqul(as_XMMRegister(n), Address(rsp, base_addr+(off++*64)), vector_len);
       }
-#ifdef COMPILER2
+#if COMPILER2_OR_JVMCI
       base_addr = XSAVE_AREA_OPMASK_BEGIN;
       off = 0;
       for (int n = 0; n < KRegister::number_of_registers; n++) {
         __ kmov(as_KRegister(n), Address(rsp, base_addr+(off++*8)));
       }
-#endif // COMPILER2
+#endif
     }
   } else {
     if (VM_Version::supports_evex()) {
@@ -476,17 +479,17 @@ void RegisterSaver::restore_live_registers(MacroAssembler* masm, bool restore_wi
       for (int n = 16; n < num_xmm_regs; n++) {
         __ evmovdqul(as_XMMRegister(n), Address(rsp, base_addr+(off++*64)), vector_len);
       }
-#ifdef COMPILER2
+#if COMPILER2_OR_JVMCI
       base_addr = XSAVE_AREA_OPMASK_BEGIN;
       off = 0;
       for (int n = 0; n < KRegister::number_of_registers; n++) {
         __ kmov(as_KRegister(n), Address(rsp, base_addr+(off++*8)));
       }
-#endif // COMPILER2
+#endif
     }
   }
 
-#ifdef COMPILER2
+#if COMPILER2_OR_JVMCI
   if (UseAPX) {
     int base_addr = XSAVE_AREA_EGPRS;
     int off = 0;
@@ -494,7 +497,7 @@ void RegisterSaver::restore_live_registers(MacroAssembler* masm, bool restore_wi
       __ movq(as_Register(n), Address(rsp, base_addr+(off++*8)));
     }
   }
-#endif // COMPILER2
+#endif
 
   // Recover CPU state
   __ pop_FPU_state();
@@ -884,6 +887,18 @@ void SharedRuntime::gen_i2c_adapter(MacroAssembler *masm,
   // Pre-load the register-jump target early, to schedule it better.
   __ movptr(r11, Address(rbx, in_bytes(Method::from_compiled_offset())));
 
+#if INCLUDE_JVMCI
+  if (EnableJVMCI) {
+    // check if this call should be routed towards a specific entry point
+    __ cmpptr(Address(r15_thread, in_bytes(JavaThread::jvmci_alternate_call_target_offset())), 0);
+    Label no_alternative_target;
+    __ jcc(Assembler::equal, no_alternative_target);
+    __ movptr(r11, Address(r15_thread, in_bytes(JavaThread::jvmci_alternate_call_target_offset())));
+    __ movptr(Address(r15_thread, in_bytes(JavaThread::jvmci_alternate_call_target_offset())), 0);
+    __ bind(no_alternative_target);
+  }
+#endif // INCLUDE_JVMCI
+
   // Now generate the shuffle code.  Pick up all register args and move the
   // rest through the floating point stack top.
   for (int i = 0; i < total_args_passed; i++) {
@@ -1028,24 +1043,26 @@ void SharedRuntime::generate_i2c2i_adapters(MacroAssembler *masm,
 
   // Class initialization barrier for static methods
   entry_address[AdapterBlob::C2I_No_Clinit_Check] = nullptr;
-  assert(VM_Version::supports_fast_class_init_checks(), "sanity");
-  Label L_skip_barrier;
-  Register method = rbx;
+  if (VM_Version::supports_fast_class_init_checks()) {
+    Label L_skip_barrier;
+    Register method = rbx;
 
-  // Bypass the barrier for non-static methods
-  Register flags = rscratch1;
-  __ load_unsigned_short(flags, Address(method, Method::access_flags_offset()));
-  __ testl(flags, JVM_ACC_STATIC);
-  __ jcc(Assembler::zero, L_skip_barrier); // non-static
+    { // Bypass the barrier for non-static methods
+      Register flags = rscratch1;
+      __ load_unsigned_short(flags, Address(method, Method::access_flags_offset()));
+      __ testl(flags, JVM_ACC_STATIC);
+      __ jcc(Assembler::zero, L_skip_barrier); // non-static
+    }
 
-  Register klass = rscratch1;
-  __ load_method_holder(klass, method);
-  __ clinit_barrier(klass, &L_skip_barrier /*L_fast_path*/);
+    Register klass = rscratch1;
+    __ load_method_holder(klass, method);
+    __ clinit_barrier(klass, &L_skip_barrier /*L_fast_path*/);
 
-  __ jump(RuntimeAddress(SharedRuntime::get_handle_wrong_method_stub())); // slow path
+    __ jump(RuntimeAddress(SharedRuntime::get_handle_wrong_method_stub())); // slow path
 
-  __ bind(L_skip_barrier);
-  entry_address[AdapterBlob::C2I_No_Clinit_Check] = __ pc();
+    __ bind(L_skip_barrier);
+    entry_address[AdapterBlob::C2I_No_Clinit_Check] = __ pc();
+  }
 
   BarrierSetAssembler* bs = BarrierSet::barrier_set()->barrier_set_assembler();
   bs->c2i_entry_barrier(masm);
@@ -1887,8 +1904,7 @@ nmethod* SharedRuntime::generate_native_wrapper(MacroAssembler* masm,
 
   int vep_offset = ((intptr_t)__ pc()) - start;
 
-  if (method->needs_clinit_barrier()) {
-    assert(VM_Version::supports_fast_class_init_checks(), "sanity");
+  if (VM_Version::supports_fast_class_init_checks() && method->needs_clinit_barrier()) {
     Label L_skip_barrier;
     Register klass = r10;
     __ mov_metadata(klass, method->method_holder()); // InstanceKlass*
@@ -2477,6 +2493,11 @@ void SharedRuntime::generate_deopt_blob() {
   if (UseAPX) {
     pad += 1024;
   }
+#if INCLUDE_JVMCI
+  if (EnableJVMCI) {
+    pad += 512; // Increase the buffer size when compiling for JVMCI
+  }
+#endif
   const char* name = SharedRuntime::stub_name(StubId::shared_deopt_id);
   CodeBlob* blob = AOTCodeCache::load_code_blob(AOTCodeEntry::SharedBlob, BlobId::shared_deopt_id);
   if (blob != nullptr) {
@@ -2533,6 +2554,13 @@ void SharedRuntime::generate_deopt_blob() {
   __ jmp(cont);
 
   int reexecute_offset = __ pc() - start;
+#if INCLUDE_JVMCI && !defined(COMPILER1)
+  if (UseJVMCICompiler) {
+    // JVMCI does not use this kind of deoptimization
+    __ should_not_reach_here();
+  }
+#endif
+
   // Reexecute case
   // return address is the pc describes what bci to do re-execute at
 
@@ -2541,6 +2569,39 @@ void SharedRuntime::generate_deopt_blob() {
 
   __ movl(r14, Deoptimization::Unpack_reexecute); // callee-saved
   __ jmp(cont);
+
+#if INCLUDE_JVMCI
+  Label after_fetch_unroll_info_call;
+  int implicit_exception_uncommon_trap_offset = 0;
+  int uncommon_trap_offset = 0;
+
+  if (EnableJVMCI) {
+    implicit_exception_uncommon_trap_offset = __ pc() - start;
+
+    __ pushptr(Address(r15_thread, in_bytes(JavaThread::jvmci_implicit_exception_pc_offset())));
+    __ movptr(Address(r15_thread, in_bytes(JavaThread::jvmci_implicit_exception_pc_offset())), NULL_WORD);
+
+    uncommon_trap_offset = __ pc() - start;
+
+    // Save everything in sight.
+    RegisterSaver::save_live_registers(masm, 0, &frame_size_in_words, /*save_wide_vectors*/ true);
+    // fetch_unroll_info needs to call last_java_frame()
+    __ set_last_Java_frame(noreg, noreg, nullptr, rscratch1);
+
+    __ movl(c_rarg1, Address(r15_thread, in_bytes(JavaThread::pending_deoptimization_offset())));
+    __ movl(Address(r15_thread, in_bytes(JavaThread::pending_deoptimization_offset())), -1);
+
+    __ movl(r14, Deoptimization::Unpack_reexecute);
+    __ mov(c_rarg0, r15_thread);
+    __ movl(c_rarg2, r14); // exec mode
+    __ call(RuntimeAddress(CAST_FROM_FN_PTR(address, Deoptimization::uncommon_trap)));
+    oop_maps->add_gc_map( __ pc()-start, map->deep_copy());
+
+    __ reset_last_Java_frame(false);
+
+    __ jmp(after_fetch_unroll_info_call);
+  } // EnableJVMCI
+#endif // INCLUDE_JVMCI
 
   int exception_offset = __ pc() - start;
 
@@ -2625,6 +2686,12 @@ void SharedRuntime::generate_deopt_blob() {
   oop_maps->add_gc_map(__ pc() - start, map);
 
   __ reset_last_Java_frame(false);
+
+#if INCLUDE_JVMCI
+  if (EnableJVMCI) {
+    __ bind(after_fetch_unroll_info_call);
+  }
+#endif
 
   // Load UnrollBlock* into rdi
   __ mov(rdi, rax);
@@ -2783,6 +2850,12 @@ void SharedRuntime::generate_deopt_blob() {
 
   _deopt_blob = DeoptimizationBlob::create(&buffer, oop_maps, 0, exception_offset, reexecute_offset, frame_size_in_words);
   _deopt_blob->set_unpack_with_exception_in_tls_offset(exception_in_tls_offset);
+#if INCLUDE_JVMCI
+  if (EnableJVMCI) {
+    _deopt_blob->set_uncommon_trap_offset(uncommon_trap_offset);
+    _deopt_blob->set_implicit_exception_uncommon_trap_offset(implicit_exception_uncommon_trap_offset);
+  }
+#endif
 
   AOTCodeCache::store_code_blob(*_deopt_blob, AOTCodeEntry::SharedBlob, BlobId::shared_deopt_id);
 }
@@ -3529,3 +3602,4 @@ RuntimeStub* SharedRuntime::generate_jfr_return_lease() {
 }
 
 #endif // INCLUDE_JFR
+

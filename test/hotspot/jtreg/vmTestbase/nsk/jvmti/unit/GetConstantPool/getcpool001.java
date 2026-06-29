@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,7 +23,6 @@
 
 package nsk.jvmti.unit.GetConstantPool;
 
-import jdk.test.lib.thread.ThreadWrapper;
 import java.io.PrintStream;
 import nsk.share.Consts;
 
@@ -75,7 +74,7 @@ public class getcpool001 {
         return check();
     }
 
-    static class TestThread extends ThreadWrapper {
+    static class TestThread extends Thread {
         // Some constants to fill in the class constant pool
         boolean    bl = true;
         byte       bt = 127;

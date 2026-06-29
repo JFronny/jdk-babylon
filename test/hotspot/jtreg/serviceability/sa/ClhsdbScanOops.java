@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2017, 2022, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,8 +25,8 @@
  * @test id=parallel
  * @bug 8192985
  * @summary Test the clhsdb 'scanoops' command
- * @requires vm.hasSA
  * @requires vm.gc.Parallel
+ * @requires vm.hasSA
  * @requires (os.arch != "riscv64" | !(vm.cpu.features ~= ".*qemu.*"))
  * @library /test/lib
  * @run main/othervm/timeout=1200 ClhsdbScanOops UseParallelGC
@@ -36,8 +36,8 @@
  * @test id=serial
  * @bug 8192985
  * @summary Test the clhsdb 'scanoops' command
- * @requires vm.hasSA
  * @requires vm.gc.Serial
+ * @requires vm.hasSA
  * @requires (os.arch != "riscv64" | !(vm.cpu.features ~= ".*qemu.*"))
  * @library /test/lib
  * @run main/othervm/timeout=1200 ClhsdbScanOops UseSerialGC
@@ -60,10 +60,7 @@ public class ClhsdbScanOops {
 
         try {
             ClhsdbLauncher test = new ClhsdbLauncher();
-            // This test assumes that no GC should happen during its execution.
-            // Setting the initial heap size to a reasonably high number avoids
-            // running a GC.
-            theApp = LingeredApp.startApp(gc, "-XX:InitialHeapSize=100M");
+            theApp = LingeredApp.startApp(gc);
 
             System.out.println ("Started LingeredApp with the GC option " + gc +
                                 " and pid " + theApp.getPid());

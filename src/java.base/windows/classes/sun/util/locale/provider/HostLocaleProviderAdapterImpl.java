@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,9 +25,6 @@
 package sun.util.locale.provider;
 
 import java.lang.ref.SoftReference;
-import java.time.DateTimeException;
-import java.time.format.DateTimeFormatterPatternProvider;
-import java.time.format.FormatStyle;
 import java.text.DateFormat;
 import java.text.DateFormatSymbols;
 import java.text.DecimalFormat;
@@ -55,6 +52,7 @@ import java.util.spi.CalendarDataProvider;
 import java.util.spi.CalendarNameProvider;
 import java.util.spi.CurrencyNameProvider;
 import java.util.spi.LocaleNameProvider;
+import sun.text.spi.JavaTimeDateTimePatternProvider;
 import sun.util.spi.CalendarProvider;
 
 /**
@@ -546,8 +544,8 @@ public class HostLocaleProviderAdapterImpl {
         };
     }
 
-    public static DateTimeFormatterPatternProvider getDateTimeFormatterPatternProvider() {
-        return new DateTimeFormatterPatternProvider() {
+    public static JavaTimeDateTimePatternProvider getJavaTimeDateTimePatternProvider() {
+        return new JavaTimeDateTimePatternProvider() {
             @Override
             public Locale[] getAvailableLocales() {
                 return getSupportedCalendarLocales();
@@ -559,19 +557,12 @@ public class HostLocaleProviderAdapterImpl {
             }
 
             @Override
-            public String getDateTimeFormatterPattern(FormatStyle dateStyle, FormatStyle timeStyle, String calType, Locale locale) {
+            public String getJavaTimeDateTimePattern(int timeStyle, int dateStyle, String calType, Locale locale) {
                 AtomicReferenceArray<String> patterns = getDateTimePatterns(locale);
-                String datePattern = dateStyle != null ? patterns.get(dateStyle.ordinal() / 2) : "";
-                String timePattern = timeStyle != null ? patterns.get(timeStyle.ordinal() / 2 + 2) : "";
-                String delim = dateStyle != null && timeStyle != null ? " " : "";
-                return toDateTimeFormatterPattern(calType, datePattern + delim + timePattern);
-            }
-
-            @Override
-            public String getDateTimeFormatterPattern(String requestedTemplate, String calType, Locale locale) {
-                throw new DateTimeException("""
-                    Formatting pattern is not available for the requested template: "%s", calType: "%s", locale: "%s".
-                    """.formatted(requestedTemplate, calType, locale));
+                String datePattern = dateStyle != - 1 ? patterns.get(dateStyle / 2) : "";
+                String timePattern = timeStyle != - 1 ? patterns.get(timeStyle / 2 + 2) : "";
+                String delim = dateStyle != -1 && timeStyle != - 1 ? " " : "";
+                return toJavaTimeDateTimePattern(calType, datePattern + delim + timePattern);
             }
 
             private AtomicReferenceArray<String> getDateTimePatterns(Locale locale) {
@@ -598,7 +589,7 @@ public class HostLocaleProviderAdapterImpl {
              * This method will convert JRE Date/time Pattern String to JSR310
              * type Date/Time Pattern
              */
-            private String toDateTimeFormatterPattern(String calendarType, String jrePattern) {
+            private String toJavaTimeDateTimePattern(String calendarType, String jrePattern) {
                 int length = jrePattern.length();
                 StringBuilder sb = new StringBuilder(length);
                 boolean inQuote = false;

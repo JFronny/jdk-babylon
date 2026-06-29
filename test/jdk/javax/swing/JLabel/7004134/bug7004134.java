@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2015, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,8 +27,11 @@
  * @bug 7004134
  * @summary JLabel containing a ToolTipText does no longer show ToolTip after browser refresh
  * @author Pavel Porvatov
+ * @modules java.desktop/sun.awt
  * @modules java.desktop/javax.swing:open
  */
+
+import sun.awt.SunToolkit;
 
 import javax.swing.*;
 import java.awt.*;
@@ -42,12 +45,7 @@ public class bug7004134 {
 
     private static volatile int toolTipWidth;
 
-    private static Robot robot;
-
     public static void main(String[] args) throws Exception {
-
-        robot = new Robot();
-
         SwingUtilities.invokeAndWait(new Runnable() {
             public void run() {
                 label = new JLabel("A JLabel used as object for an HTML-formatted tooltip");
@@ -61,7 +59,7 @@ public class bug7004134 {
             }
         });
 
-        robot.waitForIdle();
+        ((SunToolkit) SunToolkit.getDefaultToolkit()).realSync();
 
         SwingUtilities.invokeAndWait(new Runnable() {
             public void run() {
@@ -84,6 +82,7 @@ public class bug7004134 {
 
         Thread thread = new Thread(new ThreadGroup("Some ThreadGroup"), new Runnable() {
             public void run() {
+                SunToolkit.createNewAppContext();
 
                 try {
                     SwingUtilities.invokeAndWait(new Runnable() {
@@ -97,7 +96,7 @@ public class bug7004134 {
                         }
                     });
 
-                    robot.waitForIdle();
+                    ((SunToolkit) SunToolkit.getDefaultToolkit()).realSync();
 
                     SwingUtilities.invokeAndWait(new Runnable() {
                         public void run() {

@@ -3362,19 +3362,7 @@ public class JShellTool implements MessageHandler {
             // error occurred, already reported
             return false;
         }
-        // Create missing parent directories before writing to target file
-        Path target;
-        try {
-            target = toPathResolvingUserHome(filename);
-            Path parent = target.getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-        } catch (Exception e) {
-            errormsg("jshell.err.file.exception", "/save", filename, e);
-            return false;
-        }
-        try (BufferedWriter writer = Files.newBufferedWriter(target,
+        try (BufferedWriter writer = Files.newBufferedWriter(toPathResolvingUserHome(filename),
                 Charset.defaultCharset(),
                 CREATE, TRUNCATE_EXISTING, WRITE)) {
             if (at.hasOption("-history")) {

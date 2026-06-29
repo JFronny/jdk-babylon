@@ -31,7 +31,6 @@ import java.util.Random;
 /*
  * @test
  * @bug 8323220
- * @key randomness
  * @summary Test loop invariant code motion for cmp nodes through reassociation
  * @library /test/lib /
  * @run driver compiler.c2.loopopts.InvariantCodeMotionReassociateCmp

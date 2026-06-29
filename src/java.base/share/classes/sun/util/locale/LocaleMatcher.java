@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -30,17 +30,12 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Locale.FilteringMode;
-import java.util.Locale.LanguageRange;
+import java.util.Locale.*;
+import static java.util.Locale.FilteringMode.*;
+import static java.util.Locale.LanguageRange.*;
 import java.util.Map;
-import java.util.Objects;
-
-import static java.util.Locale.FilteringMode.AUTOSELECT_FILTERING;
-import static java.util.Locale.FilteringMode.EXTENDED_FILTERING;
-import static java.util.Locale.FilteringMode.MAP_EXTENDED_RANGES;
-import static java.util.Locale.FilteringMode.REJECT_EXTENDED_RANGES;
-import static java.util.Locale.LanguageRange.MAX_WEIGHT;
-import static java.util.Locale.LanguageRange.MIN_WEIGHT;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Implementation for BCP47 Locale matching

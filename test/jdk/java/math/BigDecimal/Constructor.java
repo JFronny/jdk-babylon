@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1999, 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -26,57 +26,45 @@
  * @bug 4259453 8200698
  * @summary Test constructors of BigDecimal
  * @library ..
- * @run junit Constructor
+ * @run testng Constructor
  */
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-
 import java.math.BigDecimal;
+import org.testng.annotations.Test;
 
 public class Constructor {
-    @Test
+    @Test(expectedExceptions=NumberFormatException.class)
     public void stringConstructor() {
-        Assertions.assertThrows(NumberFormatException.class, () -> {
-            BigDecimal bd = new BigDecimal("1.2e");
-        });
+        BigDecimal bd = new BigDecimal("1.2e");
     }
 
-    @Test
+    @Test(expectedExceptions=NumberFormatException.class)
     public void charArrayConstructorNegativeOffset() {
-        Assertions.assertThrows(NumberFormatException.class, () -> {
-            BigDecimal bd = new BigDecimal(new char[5], -1, 4, null);
-        });
+        BigDecimal bd = new BigDecimal(new char[5], -1, 4, null);
     }
 
-    @Test
+    @Test(expectedExceptions=NumberFormatException.class)
     public void charArrayConstructorNegativeLength() {
-        Assertions.assertThrows(NumberFormatException.class, () -> {
-            BigDecimal bd = new BigDecimal(new char[5], 0, -1, null);
-        });
+        BigDecimal bd = new BigDecimal(new char[5], 0, -1, null);
     }
 
-    @Test
+    @Test(expectedExceptions=NumberFormatException.class)
     public void charArrayConstructorIntegerOverflow() {
-        Assertions.assertThrows(NumberFormatException.class, () -> {
-            try {
-                BigDecimal bd = new BigDecimal(new char[5], Integer.MAX_VALUE - 5,
-                        6, null);
-            } catch (NumberFormatException nfe) {
-                if (nfe.getCause() instanceof IndexOutOfBoundsException) {
-                    throw new RuntimeException
-                            ("NumberFormatException should not have a cause");
-                } else {
-                    throw nfe;
-                }
+        try {
+            BigDecimal bd = new BigDecimal(new char[5], Integer.MAX_VALUE - 5,
+                6, null);
+        } catch (NumberFormatException nfe) {
+            if (nfe.getCause() instanceof IndexOutOfBoundsException) {
+                throw new RuntimeException
+                    ("NumberFormatException should not have a cause");
+            } else {
+                throw nfe;
             }
-        });
+        }
     }
 
-    @Test
+    @Test(expectedExceptions=NumberFormatException.class)
     public void charArrayConstructorIndexOutOfBounds() {
-        Assertions.assertThrows(NumberFormatException.class, () -> {
-            BigDecimal bd = new BigDecimal(new char[5], 1, 5, null);
-        });
+        BigDecimal bd = new BigDecimal(new char[5], 1, 5, null);
     }
 }

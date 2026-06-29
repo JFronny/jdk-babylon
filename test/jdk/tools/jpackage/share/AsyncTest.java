@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,6 +23,7 @@
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Collection;
@@ -33,12 +34,14 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
+import java.util.spi.ToolProvider;
 import java.util.stream.IntStream;
-import jdk.jpackage.internal.util.Slot;
+import jdk.jpackage.internal.util.function.ThrowingRunnable;
 import jdk.jpackage.test.Annotations.ParameterSupplier;
 import jdk.jpackage.test.Annotations.Test;
 import jdk.jpackage.test.HelloApp;
 import jdk.jpackage.test.JPackageCommand;
+import jdk.jpackage.test.JavaTool;
 import jdk.jpackage.test.JavaAppDesc;
 import jdk.jpackage.test.Main;
 import jdk.jpackage.test.PackageTest;
@@ -58,14 +61,14 @@ import jdk.jpackage.test.TKit;
 public class AsyncTest {
 
     @Test
-    public void test() throws Exception {
+    public void test() throws Throwable {
 
         // Create test jar only once.
         // Besides of saving time, this avoids asynchronous invocations of java tool provider that randomly fail.
-        var appJar = HelloApp.createBundle(JavaAppDesc.parse("Hello!"), TKit.workDir());
+        APP_JAR.set(HelloApp.createBundle(JavaAppDesc.parse("Hello!"), TKit.workDir()));
 
         //
-        // Run test cases from AsyncInnerTest class asynchronously.
+        // Run test cases from InternalAsyncTest class asynchronously.
         // Spawn a thread for every test case.
         // Input data for test cases will be cooked asynchronously but in a safe way because every test case has an isolated work directory.
         // Multiple jpackage tool provider instances will be invoked asynchronously.
@@ -75,10 +78,14 @@ public class AsyncTest {
 
             var testFuncNames = List.of("testAppImage", "testNativeBundle");
 
+            var runArg = String.format("--jpt-run=%s", AsyncInnerTest.class.getName());
+
             var futures = executor.invokeAll(IntStream.range(0, JOB_COUNT).mapToObj(Integer::toString).<Workload>mapMulti((idx, consumer) -> {
                 for (var testFuncName : testFuncNames) {
                     var id = String.format("%s(%s)", testFuncName, idx);
-                    consumer.accept(new Workload(id, appJar));
+                    consumer.accept(new Workload(() -> {
+                        Main.main(runArg, String.format("--jpt-include=%s", id));
+                    }, id));
                 }
             }).toList());
 
@@ -87,17 +94,21 @@ public class AsyncTest {
                 future.get(3, TimeUnit.MINUTES);
             }
 
-            var fatalError = Slot.<Exception>createEmpty();
+            Throwable[] fatalError = new Throwable[1];
 
             for (var future : futures) {
                 var result = future.get();
-                TKit.trace(String.format("[%s] OUTPUT BEGIN\n%s", result.testCaseId(), result.testOutput()));
-                TKit.trace(String.format("[%s] OUTPUT END", result.testCaseId()));
-                result.exception().filter(Predicate.not(TKit::isSkippedException)).ifPresent(fatalError::set);
+                TKit.trace(String.format("[%s] STDOUT BEGIN\n%s", result.id(), result.stdoutBuffer()));
+                TKit.trace(String.format("[%s] STDOUT END", result.id()));
+                TKit.trace(String.format("[%s] STDERR BEGIN\n%s", result.id(), result.stderrBuffer()));
+                TKit.trace(String.format("[%s] STDERR END", result.id()));
+                result.throwable().filter(Predicate.not(TKit::isSkippedException)).ifPresent(t -> {
+                    fatalError[0] = t;
+                });
             }
 
-            if (fatalError.find().isPresent()) {
-                throw fatalError.get();
+            if (fatalError[0] != null) {
+                throw fatalError[0];
             }
         }
     }
@@ -113,10 +124,7 @@ public class AsyncTest {
         @Test
         @ParameterSupplier("ids")
         public void testNativeBundle(int id) throws Exception {
-            new PackageTest()
-                    .excludeTypes(PackageType.MAC_DMG) // See JDK-8384250
-                    .addInitializer(AsyncTest::init)
-                    .run(Action.CREATE_AND_UNPACK);
+            new PackageTest().addInitializer(AsyncTest::init).run(Action.CREATE_AND_UNPACK);
         }
 
         public static Collection<Object[]> ids() {
@@ -135,56 +143,80 @@ public class AsyncTest {
     }
 
 
-    private record Result(String testOutput, String testCaseId, Optional<Exception> exception) {
+    private record Result(String stdoutBuffer, String stderrBuffer, String id, Optional<Throwable> throwable) {
 
         Result {
-            Objects.requireNonNull(testOutput);
-            Objects.requireNonNull(testCaseId);
-            Objects.requireNonNull(exception);
+            Objects.requireNonNull(stdoutBuffer);
+            Objects.requireNonNull(stderrBuffer);
+            Objects.requireNonNull(id);
+            Objects.requireNonNull(throwable);
         }
     }
 
 
     private record Workload(
-            String testCaseId,
-            ByteArrayOutputStream outputSink,
-            Path appJar) implements Callable<Result> {
+            ByteArrayOutputStream stdoutBuffer,
+            ByteArrayOutputStream stderrBuffer,
+            ThrowingRunnable runnable,
+            String id) implements Callable<Result>  {
 
         Workload {
-            Objects.requireNonNull(testCaseId);
-            Objects.requireNonNull(outputSink);
-            Objects.requireNonNull(appJar);
+            Objects.requireNonNull(stdoutBuffer);
+            Objects.requireNonNull(stderrBuffer);
+            Objects.requireNonNull(runnable);
+            Objects.requireNonNull(id);
         }
 
-        Workload(String testCaseId, Path appJar) {
-            this(testCaseId, new ByteArrayOutputStream(), appJar);
+        Workload(ThrowingRunnable runnable, String id) {
+            this(new ByteArrayOutputStream(), new ByteArrayOutputStream(), runnable, id);
         }
 
-        private String testOutput() {
-            return new String(outputSink.toByteArray(), StandardCharsets.UTF_8);
+        private String stdoutBufferAsString() {
+            return new String(stdoutBuffer.toByteArray(), StandardCharsets.UTF_8);
+        }
+
+        private String stderrBufferAsString() {
+            return new String(stderrBuffer.toByteArray(), StandardCharsets.UTF_8);
         }
 
         @Override
         public Result call() {
-            var runArg = String.format("--jpt-run=%s", AsyncInnerTest.class.getName());
+            // Reset the current test inherited in the state from the parent thread.
+            TKit.state(DEFAULT_STATE);
 
-            Optional<Exception> err = Optional.empty();
-            try {
-                try (var out = new PrintStream(outputSink, false, System.out.charset())) {
-                    ScopedValue.where(APP_JAR, appJar).run(() -> {
-                        TKit.withOutput(() -> {
-                            JPackageCommand.useToolProviderByDefault();
-                            Main.main("--jpt-ignore-logfile", runArg, String.format("--jpt-include=%s", testCaseId));
-                        }, out, out);
-                    });
+            var defaultToolProvider = JavaTool.JPACKAGE.asToolProvider();
+
+            JPackageCommand.useToolProviderByDefault(new ToolProvider() {
+
+                @Override
+                public int run(PrintWriter out, PrintWriter err, String... args) {
+                    try (var bufOut = new PrintWriter(stdoutBuffer, true, StandardCharsets.UTF_8);
+                            var bufErr = new PrintWriter(stderrBuffer, true, StandardCharsets.UTF_8)) {
+                        return defaultToolProvider.run(bufOut, bufErr, args);
+                    }
                 }
-            } catch (Exception ex) {
-                err = Optional.of(ex);
+
+                @Override
+                public String name() {
+                    return defaultToolProvider.name();
+                }
+            });
+
+            Optional<Throwable> err = Optional.empty();
+            try (var bufOut = new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8);
+                    var bufErr = new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8)) {
+                TKit.withStackTraceStream(() -> {
+                    TKit.withMainLogStream(runnable, bufOut);
+                }, bufErr);
+            } catch (Throwable t) {
+                err = Optional.of(t);
             }
-            return new Result(testOutput(), testCaseId, err);
+            return new Result(stdoutBufferAsString(), stderrBufferAsString(), id, err);
         }
     }
 
+
     private static final int JOB_COUNT = 30;
-    private static final ScopedValue<Path> APP_JAR = ScopedValue.newInstance();
+    private static final TKit.State DEFAULT_STATE = TKit.state();
+    private static final InheritableThreadLocal<Path> APP_JAR = new InheritableThreadLocal<>();
 }

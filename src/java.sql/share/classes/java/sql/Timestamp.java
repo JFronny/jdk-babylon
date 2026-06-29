@@ -54,7 +54,10 @@ import java.time.LocalDateTime;
  * because the nanos component of a date is unknown.
  * As a result, the {@code Timestamp.equals(Object)}
  * method is not symmetric with respect to the
- * {@code java.util.Date.equals(Object)} method.
+ * {@code java.util.Date.equals(Object)}
+ * method.  Also, the {@code hashCode} method uses the underlying
+ * {@code java.util.Date}
+ * implementation and therefore does not include nanos in its computation.
  * <P>
  * Due to the differences between the {@code Timestamp} class
  * and the {@code java.util.Date}
@@ -462,15 +465,10 @@ public class Timestamp extends java.util.Date {
     }
 
     /**
-     * Returns a hash code value for this Timestamp. The result is the
-     * exclusive OR of the two halves of the primitive {@code long}
-     * value returned by the {@link #getTime} method. That is,
-     * the hash code is the value of the expression:
-     * {@snippet :
-     *   (int)(this.getTime()^(this.getTime() >>> 32))
-     * }
+     * {@inheritDoc}
      *
-     * @return a hash code value for this Timestamp.
+     * The {@code hashCode} method uses the underlying {@code java.util.Date}
+     * implementation and therefore does not include nanos in its computation.
      *
      */
     @Override

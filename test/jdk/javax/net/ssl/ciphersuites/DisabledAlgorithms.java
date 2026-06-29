@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2015, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -36,10 +36,8 @@ import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.InetAddress;
 import java.security.Security;
 import java.util.concurrent.TimeUnit;
-
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLServerSocket;
@@ -57,8 +55,6 @@ import javax.net.ssl.SSLSocketFactory;
  * that the handshake cannot complete successfully.
  */
 public class DisabledAlgorithms {
-
-    private static final int SOCKET_TIMEOUT_MILLIS = 10_000;
 
     public static final SSLContextTemplate.Cert[] CERTIFICATES = {
             SSLContextTemplate.Cert.EE_DSA_SHA1_1024,
@@ -143,15 +139,15 @@ public class DisabledAlgorithms {
         }
 
         switch (args[0]) {
-            case "default" -> {
+            case "default":
                 // use default jdk.tls.disabledAlgorithms
                 System.out.println("jdk.tls.disabledAlgorithms = "
                         + Security.getProperty("jdk.tls.disabledAlgorithms"));
 
                 // check that disabled cipher suites can't be used by default
                 checkFailure(DISABLED_CIPHERSUITES);
-            }
-            case "empty" -> {
+                break;
+            case "empty":
                 // reset jdk.tls.disabledAlgorithms
                 Security.setProperty("jdk.tls.disabledAlgorithms", "");
                 System.out.println("jdk.tls.disabledAlgorithms = "
@@ -166,8 +162,9 @@ public class DisabledAlgorithms {
                 // check that disabled cipher suites can be used if
                 // jdk.{tls,certpath}.disabledAlgorithms is empty
                 checkSuccess(DISABLED_CIPHERSUITES);
-            }
-            default -> throw new RuntimeException("Wrong parameter: " + args[0]);
+                break;
+            default:
+                throw new RuntimeException("Wrong parameter: " + args[0]);
         }
 
         System.out.println("Test passed");
@@ -273,7 +270,7 @@ public class DisabledAlgorithms {
                     DisabledAlgorithms.CERTIFICATES, getServerContextParameters());
             SSLServerSocketFactory ssf = context.getServerSocketFactory();
             SSLServerSocket ssocket = (SSLServerSocket)
-                    ssf.createServerSocket(0, 0, InetAddress.getLoopbackAddress());
+                    ssf.createServerSocket(0);
 
             if (ciphersuites != null) {
                 System.out.println("Server: enable cipher suites: "
@@ -290,10 +287,7 @@ public class DisabledAlgorithms {
             running = true;
             while (!stopped) {
                 try (SSLSocket socket = (SSLSocket) ssocket.accept()) {
-                    System.out.println("Server: accepted client connection from "
-                        + socket.getRemoteSocketAddress());
-                    socket.setSoTimeout(SOCKET_TIMEOUT_MILLIS);
-                    socket.startHandshake();
+                    System.out.println("Server: accepted client connection");
                     InputStream in = socket.getInputStream();
                     OutputStream out = socket.getOutputStream();
                     int b = in.read();
@@ -313,6 +307,7 @@ public class DisabledAlgorithms {
                                 + e);
                         e.printStackTrace();
                         otherError = true;
+                        stopped = true;
                     } else {
                         System.out.println("Server: run: " + e);
                         System.out.println("The exception above occurred "
@@ -372,9 +367,7 @@ public class DisabledAlgorithms {
             SSLContext context = createSSLContext(DisabledAlgorithms.CERTIFICATES,
                     null, getClientContextParameters());
             SSLSocketFactory ssf = context.getSocketFactory();
-            SSLSocket socket = (SSLSocket) ssf.createSocket(
-                InetAddress.getLoopbackAddress(), port);
-            socket.setSoTimeout(SOCKET_TIMEOUT_MILLIS);
+            SSLSocket socket = (SSLSocket) ssf.createSocket("localhost", port);
 
             if (ciphersuite != null) {
                 System.out.println("Client: enable cipher suite: "
@@ -386,7 +379,6 @@ public class DisabledAlgorithms {
 
         void connect() throws IOException {
             System.out.println("Client: connect to server");
-            socket.startHandshake();
             try (
                     BufferedInputStream bis = new BufferedInputStream(
                             socket.getInputStream());

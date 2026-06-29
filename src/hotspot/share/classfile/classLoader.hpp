@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -99,8 +99,7 @@ class ClassPathZipEntry: public ClassPathEntry {
 };
 
 
-// A singleton path entry which takes ownership of the initialized JImageFile
-// reference. Not used for exploded builds.
+// For java image files
 class ClassPathImageEntry: public ClassPathEntry {
 private:
   const char* _name;
@@ -108,12 +107,11 @@ private:
 public:
   bool is_modules_image() const;
   const char* name() const { return _name == nullptr ? "" : _name; }
-  // Called to close the JImage during os::abort (normally not called).
+  JImageFile* jimage() const;
+  JImageFile* jimage_non_null() const;
   void close_jimage();
-  // Takes effective ownership of the static JImageFile pointer.
-  ClassPathImageEntry(const char* name);
+  ClassPathImageEntry(JImageFile* jimage, const char* name);
   virtual ~ClassPathImageEntry() { ShouldNotReachHere(); }
-
   ClassFileStream* open_stream(JavaThread* current, const char* name);
   ClassFileStream* open_stream_for_loader(JavaThread* current, const char* name, ClassLoaderData* loader_data);
 };
@@ -186,7 +184,6 @@ class ClassLoader: AllStatic {
 
   // Count the time taken to hash the scondary superclass arrays.
   static PerfCounter* _perf_secondary_hash_time;
-  static PerfCounter* _perf_change_wx_time;
 
   // The boot class path consists of 3 ordered pieces:
   //  1. the module/path pairs specified to --patch-module
@@ -203,10 +200,10 @@ class ClassLoader: AllStatic {
   static GrowableArray<ModuleClassPathList*>* _patch_mod_entries;
 
   // 2. the base piece
-  //    Contains the ClassPathImageEntry of the modular java runtime image.
+  //    Contains the ClassPathEntry of the modular java runtime image.
   //    If no java runtime image is present, this indicates a
   //    build with exploded modules is being used instead.
-  static ClassPathImageEntry* _jrt_entry;
+  static ClassPathEntry* _jrt_entry;
   static GrowableArray<ModuleClassPathList*>* _exploded_entries;
   enum { EXPLODED_ENTRY_SIZE = 80 }; // Initial number of exploded modules
 
@@ -270,9 +267,6 @@ class ClassLoader: AllStatic {
   static PerfCounter* perf_shared_classload_time()    { return _perf_shared_classload_time; }
   static PerfCounter* perf_secondary_hash_time() {
     return _perf_secondary_hash_time;
-  }
-  static PerfCounter* perf_change_wx_time() {
-    return _perf_change_wx_time;
   }
   static PerfCounter* perf_sys_classload_time()       { return _perf_sys_classload_time; }
   static PerfCounter* perf_app_classload_time()       { return _perf_app_classload_time; }
@@ -356,15 +350,14 @@ class ClassLoader: AllStatic {
   static void append_boot_classpath(ClassPathEntry* new_entry);
 #endif
 
-  // Retrieves additional VM options prior to flags processing. Options held
-  // in the JImage file are retrieved without fully initializing it. (this is
-  // the only JImage lookup which can succeed before init_jimage() is called).
   static char* lookup_vm_options();
 
-  // Called once, after all flags are processed, to finish initializing the
-  // JImage file. Until this is called, jimage_find_resource(), and any other
-  // JImage resource lookups or access will fail.
-  static void set_preview_mode(bool enable_preview);
+  // Determines if the named module is present in the
+  // modules jimage file or in the exploded modules directory.
+  static bool is_module_observable(const char* module_name);
+
+  static JImageLocationRef jimage_find_resource(JImageFile* jf, const char* module_name,
+                                                const char* file_name, jlong &size);
 
   static void  trace_class_path(const char* msg, const char* name = nullptr);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -24,7 +24,7 @@
 /*
  * @test
  * @summary Basic test for ClassNotFoundException
- * @run junit BadValues
+ * @run testng BadValues
  */
 
 import java.io.ByteArrayInputStream;
@@ -32,11 +32,10 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
+import org.testng.annotations.Test;
 import static java.io.ObjectStreamConstants.*;
 import static java.lang.System.out;
-
-import static org.junit.jupiter.api.Assertions.*;
-import org.junit.jupiter.api.Test;
+import static org.testng.Assert.*;
 
 /**
  * Not directly related to records but provokes surrounding code, and ensures
@@ -74,7 +73,7 @@ public class BadValues {
     public void testNotFoundSer() throws Exception {
         out.println("\n---");
         byte[] bytes = byteStreamFor("XxYyZz", 0L, (byte)SC_SERIALIZABLE);
-        Throwable t = assertThrows(CNFE, () -> deserialize(bytes));
+        Throwable t = expectThrows(CNFE, () -> deserialize(bytes));
         out.println("caught expected CNFE: " + t);
     }
 
@@ -82,7 +81,7 @@ public class BadValues {
     public void testNotFoundSerWr() throws Exception {
         out.println("\n---");
         byte[] bytes = byteStreamFor("XxYyZz", 0L, (byte)(SC_SERIALIZABLE | SC_WRITE_METHOD));
-        Throwable t = assertThrows(CNFE, () -> deserialize(bytes));
+        Throwable t = expectThrows(CNFE, () -> deserialize(bytes));
         out.println("caught expected CNFE: " + t);
     }
 
@@ -90,7 +89,7 @@ public class BadValues {
     public void testNotFoundExt() throws Exception {
         out.println("\n---");
         byte[] bytes = byteStreamFor("AaBbCc", 0L, (byte)SC_EXTERNALIZABLE);
-        Throwable t = assertThrows(CNFE, () -> deserialize(bytes));
+        Throwable t = expectThrows(CNFE, () -> deserialize(bytes));
         out.println("caught expected CNFE: " + t);
     }
 
@@ -98,7 +97,7 @@ public class BadValues {
     public void testNotFoundExtWr() throws Exception {
         out.println("\n---");
         byte[] bytes = byteStreamFor("AaBbCc", 0L, (byte)(SC_SERIALIZABLE | SC_WRITE_METHOD));
-        Throwable t = assertThrows(CNFE, () -> deserialize(bytes));
+        Throwable t = expectThrows(CNFE, () -> deserialize(bytes));
         out.println("caught expected CNFE: " + t);
     }
 

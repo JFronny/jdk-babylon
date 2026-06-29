@@ -27,7 +27,6 @@
 
 // No concurrentHashTableTasks.hpp
 
-#include "runtime/atomic.hpp"
 #include "runtime/atomicAccess.hpp"
 #include "utilities/concurrentHashTable.inline.hpp"
 #include "utilities/globalDefinitions.hpp"
@@ -42,7 +41,7 @@ class ConcurrentHashTable<CONFIG, MT>::BucketsOperation {
   ConcurrentHashTable<CONFIG, MT>* _cht;
 
   class InternalTableClaimer {
-    Atomic<size_t> _next;
+    volatile size_t _next;
     size_t _limit;
     size_t _size;
 
@@ -57,14 +56,14 @@ public:
 
     void set(size_t claim_size, InternalTable* table) {
       assert(table != nullptr, "precondition");
-      _next.store_relaxed(0);
+      _next = 0;
       _limit = table->_size;
       _size  = MIN2(claim_size, _limit);
     }
 
     bool claim(size_t* start, size_t* stop) {
-      if (_next.load_relaxed() < _limit) {
-        size_t claimed = _next.fetch_then_add(_size);
+      if (AtomicAccess::load(&_next) < _limit) {
+        size_t claimed = AtomicAccess::fetch_then_add(&_next, _size);
         if (claimed < _limit) {
           *start = claimed;
           *stop  = MIN2(claimed + _size, _limit);
@@ -79,7 +78,7 @@ public:
     }
 
     bool have_more_work() {
-      return _next.load_acquire() >= _limit;
+      return AtomicAccess::load_acquire(&_next) >= _limit;
     }
   };
 
@@ -109,13 +108,13 @@ public:
   }
 
   void thread_owns_resize_lock(Thread* thread) {
-    assert(BucketsOperation::_cht->_resize_lock_owner.load_relaxed() == thread,
+    assert(BucketsOperation::_cht->_resize_lock_owner == thread,
            "Should be locked by me");
     assert(BucketsOperation::_cht->_resize_lock->owned_by_self(),
            "Operations lock not held");
   }
   void thread_owns_only_state_lock(Thread* thread) {
-    assert(BucketsOperation::_cht->_resize_lock_owner.load_relaxed() == thread,
+    assert(BucketsOperation::_cht->_resize_lock_owner == thread,
            "Should be locked by me");
     assert(!BucketsOperation::_cht->_resize_lock->owned_by_self(),
            "Operations lock held");
@@ -123,7 +122,7 @@ public:
   void thread_do_not_own_resize_lock(Thread* thread) {
     assert(!BucketsOperation::_cht->_resize_lock->owned_by_self(),
            "Operations lock held");
-    assert(BucketsOperation::_cht->_resize_lock_owner.load_relaxed() != thread,
+    assert(BucketsOperation::_cht->_resize_lock_owner != thread,
            "Should not be locked by me");
   }
 
@@ -170,7 +169,7 @@ class ConcurrentHashTable<CONFIG, MT>::BulkDeleteTask :
   template <typename EVALUATE_FUNC, typename DELETE_FUNC>
   bool do_task(Thread* thread, EVALUATE_FUNC& eval_f, DELETE_FUNC& del_f) {
     size_t start, stop;
-    assert(BucketsOperation::_cht->_resize_lock_owner.load_relaxed() != nullptr,
+    assert(BucketsOperation::_cht->_resize_lock_owner != nullptr,
            "Should be locked");
     if (!this->claim(&start, &stop)) {
       return false;
@@ -178,7 +177,7 @@ class ConcurrentHashTable<CONFIG, MT>::BulkDeleteTask :
     BucketsOperation::_cht->do_bulk_delete_locked_for(thread, start, stop,
                                                       eval_f, del_f,
                                                       BucketsOperation::_is_mt);
-    assert(BucketsOperation::_cht->_resize_lock_owner.load_relaxed() != nullptr,
+    assert(BucketsOperation::_cht->_resize_lock_owner != nullptr,
            "Should be locked");
     return true;
   }
@@ -211,13 +210,13 @@ class ConcurrentHashTable<CONFIG, MT>::GrowTask :
   // Re-sizes a portion of the table. Returns true if there is more work.
   bool do_task(Thread* thread) {
     size_t start, stop;
-    assert(BucketsOperation::_cht->_resize_lock_owner.load_relaxed() != nullptr,
+    assert(BucketsOperation::_cht->_resize_lock_owner != nullptr,
            "Should be locked");
     if (!this->claim(&start, &stop)) {
       return false;
     }
     BucketsOperation::_cht->internal_grow_range(thread, start, stop);
-    assert(BucketsOperation::_cht->_resize_lock_owner.load_relaxed() != nullptr,
+    assert(BucketsOperation::_cht->_resize_lock_owner != nullptr,
            "Should be locked");
     return true;
   }
@@ -254,13 +253,13 @@ class ConcurrentHashTable<CONFIG, MT>::StatisticsTask :
   template <typename VALUE_SIZE_FUNC>
   bool do_task(Thread* thread, VALUE_SIZE_FUNC& sz) {
     size_t start, stop;
-    assert(BucketsOperation::_cht->_resize_lock_owner.load_relaxed() != nullptr,
+    assert(BucketsOperation::_cht->_resize_lock_owner != nullptr,
            "Should be locked");
     if (!this->claim(&start, &stop)) {
       return false;
     }
     BucketsOperation::_cht->internal_statistics_range(thread, start, stop, sz, _summary, _literal_bytes);
-    assert(BucketsOperation::_cht->_resize_lock_owner.load_relaxed() != nullptr,
+    assert(BucketsOperation::_cht->_resize_lock_owner != nullptr,
            "Should be locked");
     return true;
   }

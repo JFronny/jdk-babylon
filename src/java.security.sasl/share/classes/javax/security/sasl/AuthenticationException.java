@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2013, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -24,8 +24,6 @@
  */
 
 package javax.security.sasl;
-
-import java.io.Serial;
 
 /**
  * This exception is thrown by a SASL mechanism implementation
@@ -81,6 +79,5 @@ public class AuthenticationException extends SaslException {
     }
 
     /** Use serialVersionUID from JSR 28 RI for interoperability */
-    @Serial
     private static final long serialVersionUID = -3579708765071815007L;
 }

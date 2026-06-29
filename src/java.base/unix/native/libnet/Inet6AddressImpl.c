@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -227,12 +227,9 @@ Java_java_net_Inet6AddressImpl_lookupAllHostAddr(JNIEnv *env, jobject this,
     hints.ai_flags = AI_CANONNAME;
     hints.ai_family = lookupCharacteristicsToAddressFamily(characteristics);
 
-    NET_RESTARTABLE(error, getaddrinfo(hostname, NULL, &hints, &res),
-                                      error == EAI_SYSTEM && errno == EINTR);
+    error = getaddrinfo(hostname, NULL, &hints, &res);
 
     if (error) {
-        // capture the errno from getaddrinfo
-        const int sys_errno = errno;
 #if defined(MACOSX)
         // if getaddrinfo fails try getifaddrs
         ret = lookupIfLocalhost(env, hostname, JNI_TRUE, characteristics);
@@ -241,7 +238,7 @@ Java_java_net_Inet6AddressImpl_lookupAllHostAddr(JNIEnv *env, jobject this,
         }
 #endif
         // report error
-        NET_ThrowUnknownHostExceptionWithGaiError(env, hostname, error, sys_errno);
+        NET_ThrowUnknownHostExceptionWithGaiError(env, hostname, error);
         goto cleanupAndReturn;
     } else {
         int i = 0, inetCount = 0, inet6Count = 0, inetIndex = 0,
@@ -433,20 +430,16 @@ Java_java_net_Inet6AddressImpl_getHostByAddr(JNIEnv *env, jobject this,
         len = sizeof(struct sockaddr_in6);
     }
 
-    int r;
-
-    NET_RESTARTABLE(r, getnameinfo(&sa.sa, len, host, sizeof(host), NULL, 0, NI_NAMEREQD),
-                    r == EAI_SYSTEM && errno == EINTR);
-
-    if (r == 0) {
+    if (getnameinfo(&sa.sa, len, host, sizeof(host), NULL, 0, NI_NAMEREQD)) {
+        JNU_ThrowByName(env, "java/net/UnknownHostException", NULL);
+    } else {
         ret = (*env)->NewStringUTF(env, host);
-        if (ret != NULL) {
-            return ret;
+        if (ret == NULL) {
+            JNU_ThrowByName(env, "java/net/UnknownHostException", NULL);
         }
     }
 
-    JNU_ThrowByName(env, "java/net/UnknownHostException", NULL);
-    return NULL;
+    return ret;
 }
 
 /**
@@ -490,8 +483,7 @@ tcp_ping6(JNIEnv *env, SOCKETADDRESS *sa, SOCKETADDRESS *netif, jint timeout,
     SET_NONBLOCKING(fd);
 
     sa->sa6.sin6_port = htons(7); // echo port
-    NET_RESTARTABLE(connect_rv, connect(fd, &sa->sa, sizeof(struct sockaddr_in6)),
-                    connect_rv == -1 && errno == EINTR);
+    connect_rv = connect(fd, &sa->sa, sizeof(struct sockaddr_in6));
 
     // connection established or refused immediately, either way it means
     // we were able to reach the host!
@@ -612,10 +604,7 @@ ping6(JNIEnv *env, jint fd, SOCKETADDRESS *sa, SOCKETADDRESS *netif,
         memcpy(sendbuf + sizeof(struct icmp6_hdr), &tv, sizeof(tv));
         icmp6->icmp6_cksum = 0;
         // send it
-
-        NET_RESTARTABLE(n, sendto(fd, sendbuf, plen, 0, &sa->sa, sizeof(struct sockaddr_in6)),
-                        n == -1 && errno == EINTR);
-
+        n = sendto(fd, sendbuf, plen, 0, &sa->sa, sizeof(struct sockaddr_in6));
         if (n < 0 && errno != EINPROGRESS) {
 #if defined(__linux__)
             /*
@@ -639,9 +628,8 @@ ping6(JNIEnv *env, jint fd, SOCKETADDRESS *sa, SOCKETADDRESS *netif,
             tmout2 = NET_Wait(env, fd, NET_WAIT_READ, tmout2);
             if (tmout2 >= 0) {
                 len = sizeof(sa_recv);
-                NET_RESTARTABLE(n, recvfrom(fd, recvbuf, sizeof(recvbuf), 0,
-                                   (struct sockaddr *)&sa_recv, &len),
-                                   n == -1 && errno == EINTR);
+                n = recvfrom(fd, recvbuf, sizeof(recvbuf), 0,
+                             (struct sockaddr *)&sa_recv, &len);
                 // check if we received enough data
                 if (n < (jint)sizeof(struct icmp6_hdr)) {
                     continue;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -463,7 +463,6 @@ public class PNGMetadata extends IIOMetadata implements Cloneable {
         IHDR_present = true;
     }
 
-    @Override
     public boolean isReadOnly() {
         return false;
     }
@@ -481,7 +480,6 @@ public class PNGMetadata extends IIOMetadata implements Cloneable {
     }
 
     // Deep clone
-    @Override
     public Object clone() {
         PNGMetadata metadata;
         try {
@@ -497,7 +495,6 @@ public class PNGMetadata extends IIOMetadata implements Cloneable {
         return metadata;
     }
 
-    @Override
     public Node getAsTree(String formatName) {
         if (formatName.equals(nativeMetadataFormatName)) {
             return getNativeTree();
@@ -850,7 +847,6 @@ public class PNGMetadata extends IIOMetadata implements Cloneable {
         return numChannels;
     }
 
-    @Override
     public IIOMetadataNode getStandardChromaNode() {
         IIOMetadataNode chroma_node = new IIOMetadataNode("Chroma");
         IIOMetadataNode node = null; // scratch node
@@ -923,7 +919,6 @@ public class PNGMetadata extends IIOMetadata implements Cloneable {
         return chroma_node;
     }
 
-    @Override
     public IIOMetadataNode getStandardCompressionNode() {
         IIOMetadataNode compression_node = new IIOMetadataNode("Compression");
         IIOMetadataNode node = null; // scratch node
@@ -957,7 +952,6 @@ public class PNGMetadata extends IIOMetadata implements Cloneable {
         return sb.toString();
     }
 
-    @Override
     public IIOMetadataNode getStandardDataNode() {
         IIOMetadataNode data_node = new IIOMetadataNode("Data");
         IIOMetadataNode node = null; // scratch node
@@ -1004,7 +998,6 @@ public class PNGMetadata extends IIOMetadata implements Cloneable {
         return data_node;
     }
 
-    @Override
     public IIOMetadataNode getStandardDimensionNode() {
         IIOMetadataNode dimension_node = new IIOMetadataNode("Dimension");
         IIOMetadataNode node = null; // scratch node
@@ -1034,7 +1027,6 @@ public class PNGMetadata extends IIOMetadata implements Cloneable {
         return dimension_node;
     }
 
-    @Override
     public IIOMetadataNode getStandardDocumentNode() {
         IIOMetadataNode document_node = null;
 
@@ -1075,7 +1067,6 @@ public class PNGMetadata extends IIOMetadata implements Cloneable {
         return document_node;
     }
 
-    @Override
     public IIOMetadataNode getStandardTextNode() {
         int numEntries = tEXt_keyword.size() +
             iTXt_keyword.size() + zTXt_keyword.size();
@@ -1123,7 +1114,6 @@ public class PNGMetadata extends IIOMetadata implements Cloneable {
         return text_node;
     }
 
-    @Override
     public IIOMetadataNode getStandardTransparencyNode() {
         IIOMetadataNode transparency_node =
             new IIOMetadataNode("Transparency");
@@ -1295,7 +1285,6 @@ public class PNGMetadata extends IIOMetadata implements Cloneable {
             return getAttribute(node, name, null, true);
     }
 
-    @Override
     public void mergeTree(String formatName, Node root)
         throws IIOInvalidTreeException {
         if (formatName.equals(nativeMetadataFormatName)) {
@@ -2278,7 +2267,6 @@ public class PNGMetadata extends IIOMetadata implements Cloneable {
     }
 
     // Reset all instance variables to their initial state
-    @Override
     public void reset() {
         IHDR_present = false;
         PLTE_present = false;

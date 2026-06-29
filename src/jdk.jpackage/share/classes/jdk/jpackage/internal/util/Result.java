@@ -24,28 +24,33 @@
  */
 package jdk.jpackage.internal.util;
 
+import static jdk.jpackage.internal.util.function.ExceptionBox.rethrowUnchecked;
+
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 import java.util.stream.StreamSupport;
-import jdk.jpackage.internal.util.function.ExceptionBox;
-import jdk.jpackage.internal.util.function.ThrowingSupplier;
 
 
 public record Result<T>(Optional<T> value, Collection<? extends Exception> errors) {
     public Result {
         if (value.isEmpty() == errors.isEmpty()) {
-            throw new IllegalArgumentException("'value' and 'errors' cannot both be non-empty or both be empty");
+            throw new IllegalArgumentException();
         }
+
+        if (value.isEmpty() && errors.isEmpty()) {
+            throw new IllegalArgumentException("Error collection must be non-empty");
+        }
+
     }
 
     public T orElseThrow() {
         firstError().ifPresent(ex -> {
-            throw ExceptionBox.toUnchecked(ex);
+            rethrowUnchecked(ex);
         });
         return value.orElseThrow();
     }
@@ -59,16 +64,7 @@ public record Result<T>(Optional<T> value, Collection<? extends Exception> error
     }
 
     public <U> Result<U> map(Function<T, U> conv) {
-        if (hasValue()) {
-            var mapped = value.map(conv);
-            if (mapped.isEmpty()) {
-                throw new NullPointerException();
-            } else {
-                return new Result<>(mapped, errors);
-            }
-        } else {
-            return mapErrors();
-        }
+        return new Result<>(value.map(conv), errors);
     }
 
     public <U> Result<U> flatMap(Function<T, Result<U>> conv) {
@@ -77,12 +73,12 @@ public record Result<T>(Optional<T> value, Collection<? extends Exception> error
         });
     }
 
-    @SuppressWarnings("unchecked")
+    public Result<T> mapErrors(UnaryOperator<Collection<? extends Exception>> errorsMapper) {
+        return new Result<>(value, errorsMapper.apply(errors));
+    }
+
     public <U> Result<U> mapErrors() {
-        if (hasValue()) {
-            throw new IllegalStateException("Can not map errors from a result without errors");
-        }
-        return (Result<U>)this;
+        return new Result<>(Optional.empty(), errors);
     }
 
     public Result<T> peekErrors(Consumer<Collection<? extends Exception>> consumer) {
@@ -101,31 +97,12 @@ public record Result<T>(Optional<T> value, Collection<? extends Exception> error
         return errors.stream().findFirst();
     }
 
-    public static <T> Result<T> of(Supplier<T> supplier) {
-        return of(supplier::get, RuntimeException.class);
-    }
-
-    public static <T, E extends Exception> Result<T> of(
-            ThrowingSupplier<T, ? extends E> supplier, Class<? extends E> supplierExceptionType) {
-
-        Objects.requireNonNull(supplier);
-        Objects.requireNonNull(supplierExceptionType);
-
-        T value;
+    public static <T> Result<T> create(Supplier<T> supplier) {
         try {
-            value = supplier.get();
+            return ofValue(supplier.get());
         } catch (Exception ex) {
-            if (supplierExceptionType.isInstance(ex)) {
-                return ofError(ex);
-            } else if (ex instanceof RuntimeException rex) {
-                throw rex;
-            } else {
-                // Unreachable because the `supplier` can throw exceptions of type or supertype `E` or runtime exceptions.
-                throw ExceptionBox.reachedUnreachable();
-            }
+            return ofError(ex);
         }
-
-        return ofValue(value);
     }
 
     public static <T> Result<T> ofValue(T value) {

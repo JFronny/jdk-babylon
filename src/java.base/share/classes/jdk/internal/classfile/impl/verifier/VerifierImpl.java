@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -1047,11 +1047,13 @@ public final class VerifierImpl {
                         no_control_flow = false; break;
                     case IF_ACMPEQ :
                     case IF_ACMPNE :
-                        current_frame.pop_stack(object_type());
+                        current_frame.pop_stack(
+                            VerificationType.reference_check);
                         // fall through
                     case IFNULL :
                     case IFNONNULL :
-                        current_frame.pop_stack(object_type());
+                        current_frame.pop_stack(
+                            VerificationType.reference_check);
                         target = bcs.dest();
                         stackmap_table.check_jump_target
                             (current_frame, target);

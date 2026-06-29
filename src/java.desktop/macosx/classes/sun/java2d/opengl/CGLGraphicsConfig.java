@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -34,7 +34,6 @@ import java.awt.Image;
 import java.awt.ImageCapabilities;
 import java.awt.Rectangle;
 import java.awt.Transparency;
-import java.awt.Window;
 import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
 import java.awt.image.ColorModel;
@@ -256,11 +255,7 @@ public final class CGLGraphicsConfig extends CGraphicsConfig
     public Image createAcceleratedImage(Component target,
                                         int width, int height)
     {
-        int transparency = Transparency.OPAQUE;
-        if (target instanceof Window window && !window.isOpaque()) {
-            transparency = Transparency.TRANSLUCENT;
-        }
-        ColorModel model = getColorModel(transparency);
+        ColorModel model = getColorModel(Transparency.OPAQUE);
         WritableRaster wr = model.createCompatibleWritableRaster(width, height);
         return new OffScreenImage(target, model, wr,
                                   model.isAlphaPremultiplied());

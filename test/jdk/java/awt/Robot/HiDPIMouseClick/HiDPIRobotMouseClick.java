@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2015, 2017, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -33,13 +33,10 @@ import javax.swing.UIManager;
  * @test
  * @key headful
  * @bug 8073320
- * @summary Windows HiDPI support (multi-scale)
+ * @summary  Windows HiDPI support
+ * @author Alexander Scherbatiy
  * @requires (os.family == "windows")
- * @run main/othervm -Dsun.java2d.win.uiScale=1   HiDPIRobotMouseClick
- * @run main/othervm -Dsun.java2d.win.uiScale=1.25 HiDPIRobotMouseClick
- * @run main/othervm -Dsun.java2d.win.uiScale=1.5 HiDPIRobotMouseClick
- * @run main/othervm -Dsun.java2d.win.uiScale=2   HiDPIRobotMouseClick
- * @run main/othervm -Dsun.java2d.win.uiScale=2.5 HiDPIRobotMouseClick
+ * @run main/othervm -Dsun.java2d.win.uiScale=2 HiDPIRobotMouseClick
  */
 
 public class HiDPIRobotMouseClick {
@@ -49,12 +46,9 @@ public class HiDPIRobotMouseClick {
 
     public static void main(String[] args) throws Exception {
 
-        String scale = System.getProperty("sun.java2d.win.uiScale", "default");
-        System.out.println("Running with DPI scale: " + scale);
-
         try {
             UIManager.setLookAndFeel(
-                "com.sun.java.swing.plaf.windows.WindowsLookAndFeel");
+                    "com.sun.java.swing.plaf.windows.WindowsLookAndFeel");
         } catch (Exception e) {
             return;
         }
@@ -64,6 +58,7 @@ public class HiDPIRobotMouseClick {
         frame.setUndecorated(true);
 
         frame.addMouseListener(new MouseAdapter() {
+
             @Override
             public void mouseClicked(MouseEvent e) {
                 mouseX = e.getXOnScreen();
@@ -84,16 +79,12 @@ public class HiDPIRobotMouseClick {
         int y = (int) rect.getCenterY();
 
         robot.mouseMove(x, y);
-        robot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
-        robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
+        robot.mousePress(InputEvent.BUTTON1_MASK);
+        robot.mouseRelease(InputEvent.BUTTON1_MASK);
         robot.waitForIdle();
 
         if (x != mouseX || y != mouseY) {
-            throw new RuntimeException(
-                "Wrong mouse click point at scale %s! Expected: (%d,%d) Got: (%d,%d)"
-                .formatted(scale, x, y, mouseX, mouseY));
+            throw new RuntimeException("Wrong mouse click point!");
         }
-
-        System.out.println("PASS at scale: " + scale);
     }
 }

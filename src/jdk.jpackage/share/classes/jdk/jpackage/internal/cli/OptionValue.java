@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -81,8 +81,7 @@ public sealed interface OptionValue<T> extends WithOptionIdentifier {
     }
 
     static final class Builder<T> {
-
-        public OptionValue<T> create() {
+        OptionValue<T> create() {
             if (conv != null) {
                 return conv.create(Optional.ofNullable(defaultValue));
             } else {
@@ -93,7 +92,7 @@ public sealed interface OptionValue<T> extends WithOptionIdentifier {
             }
         }
 
-        public Builder<T> defaultValue(T v) {
+        Builder<T> defaultValue(T v) {
             defaultValue = v;
             return this;
         }
@@ -104,19 +103,19 @@ public sealed interface OptionValue<T> extends WithOptionIdentifier {
             return this;
         }
 
-        public Builder<T> id(OptionIdentifier v) {
+        Builder<T> id(OptionIdentifier v) {
             id = v;
             conv = null;
             return this;
         }
 
-        public <U> Builder<T> from(OptionValue<U> base, Function<U, T> conv) {
+        <U> Builder<T> from(OptionValue<U> base, Function<U, T> conv) {
             id(null).spec(null);
             this.conv = new Conv<>(base, conv);
             return this;
         }
 
-        public <U> Builder<U> to(Function<T, U> conv) {
+        <U> Builder<U> to(Function<T, U> conv) {
             return OptionValue.<U>build().from(create(), conv);
         }
 

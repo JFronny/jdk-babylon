@@ -88,8 +88,6 @@ import java.time.temporal.UnsupportedTemporalTypeException;
 import java.time.temporal.ValueRange;
 import java.util.Objects;
 
-import jdk.internal.util.DecimalDigits;
-
 /**
  * A month-day in the ISO-8601 calendar system, such as {@code --12-03}.
  * <p>
@@ -766,12 +764,10 @@ public final class MonthDay
      */
     @Override
     public String toString() {
-        StringBuilder buf = new StringBuilder(10);
-        buf.append("--");
-        DecimalDigits.appendPair(buf, month);
-        buf.append('-');
-        DecimalDigits.appendPair(buf, day);
-        return buf.toString();
+        return new StringBuilder(10).append("--")
+            .append(month < 10 ? "0" : "").append(month)
+            .append(day < 10 ? "-0" : "-").append(day)
+            .toString();
     }
 
     //-----------------------------------------------------------------------

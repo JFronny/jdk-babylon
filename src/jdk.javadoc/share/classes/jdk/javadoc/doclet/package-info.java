@@ -190,6 +190,7 @@
  * and its members, supporting an option.
  *
  * {@snippet lang=java id="Example.java" :
+ * // @replace region=imports replacement=" // Note: imports deleted for clarity"
  * import com.sun.source.doctree.DocCommentTree;
  * import com.sun.source.util.DocTrees;
  * import jdk.javadoc.doclet.Doclet;
@@ -206,11 +207,12 @@
  * import java.util.List;
  * import java.util.Locale;
  * import java.util.Set;
+ * // @end
+ *
  *
  * public class Example implements Doclet {
  *     private Reporter reporter;
  *     private PrintWriter stdout;
- *     private String overviewFile;
  *
  *     @Override
  *     public void init(Locale locale, Reporter reporter) {
@@ -219,10 +221,50 @@
  *         stdout = reporter.getStandardWriter();
  *     }
  *
+ *     public void printElement(DocTrees trees, Element e) {
+ *         DocCommentTree docCommentTree = trees.getDocCommentTree(e);
+ *         if (docCommentTree != null) {
+ *             stdout.println("Element (" + e.getKind() + ": "
+ *                     + e + ") has the following comments:");
+ *             stdout.println("Entire body: " + docCommentTree.getFullBody());
+ *             stdout.println("Block tags: " + docCommentTree.getBlockTags());
+ *         }
+ *     }
+ *
+ *     @Override
+ *     public boolean run(DocletEnvironment docEnv) {
+ *         reporter.print(Kind.NOTE, "overviewFile: " + overviewFile);
+ *
+ *         // get the DocTrees utility class to access document comments
+ *         DocTrees docTrees = docEnv.getDocTrees();
+ *
+ *         // location of an element in the same directory as overview.html
+ *         try {
+ *             Element e = ElementFilter.typesIn(docEnv.getSpecifiedElements()).iterator().next();
+ *             DocCommentTree docCommentTree
+ *                     = docTrees.getDocCommentTree(e, overviewFile);
+ *             if (docCommentTree != null) {
+ *                 stdout.println("Overview html: " + docCommentTree.getFullBody());
+ *             }
+ *         } catch (IOException missing) {
+ *             reporter.print(Kind.ERROR, "No overview.html found.");
+ *         }
+ *
+ *         for (TypeElement t : ElementFilter.typesIn(docEnv.getIncludedElements())) {
+ *             stdout.println(t.getKind() + ":" + t);
+ *             for (Element e : t.getEnclosedElements()) {
+ *                 printElement(docTrees, e);
+ *             }
+ *         }
+ *         return true;
+ *     }
+ *
  *     @Override
  *     public String getName() {
  *         return "Example";
  *     }
+ *
+ *     private String overviewFile;
  *
  *     @Override
  *     public Set<? extends Option> getSupportedOptions() {
@@ -274,44 +316,6 @@
  *     public SourceVersion getSupportedSourceVersion() {
  *         // support the latest release
  *         return SourceVersion.latest();
- *     }
- *
- *     @Override
- *     public boolean run(DocletEnvironment docEnv) {
- *         reporter.print(Kind.NOTE, "overviewFile: " + overviewFile);
- *
- *         // get the DocTrees utility class to access document comments
- *         DocTrees docTrees = docEnv.getDocTrees();
- *
- *         // location of an element in the same directory as overview.html
- *         try {
- *             Element e = ElementFilter.typesIn(docEnv.getSpecifiedElements()).iterator().next();
- *             DocCommentTree docCommentTree
- *                     = docTrees.getDocCommentTree(e, overviewFile);
- *             if (docCommentTree != null) {
- *                 stdout.println("Overview html: " + docCommentTree.getFullBody());
- *             }
- *         } catch (IOException missing) {
- *             reporter.print(Kind.ERROR, "No overview.html found.");
- *         }
- *
- *         for (TypeElement t : ElementFilter.typesIn(docEnv.getIncludedElements())) {
- *             stdout.println(t.getKind() + ":" + t);
- *             for (Element e : t.getEnclosedElements()) {
- *                 printElement(docTrees, e);
- *             }
- *         }
- *         return true;
- *     }
- *
- *     private void printElement(DocTrees trees, Element e) {
- *         DocCommentTree docCommentTree = trees.getDocCommentTree(e);
- *         if (docCommentTree != null) {
- *             stdout.println("Element (" + e.getKind() + ": "
- *                     + e + ") has the following comments:");
- *             stdout.println("Entire body: " + docCommentTree.getFullBody());
- *             stdout.println("Block tags: " + docCommentTree.getBlockTags());
- *         }
  *     }
  * }
  * }

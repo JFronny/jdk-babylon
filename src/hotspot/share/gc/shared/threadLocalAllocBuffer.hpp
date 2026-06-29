@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1999, 2023, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -32,18 +32,20 @@
 
 class ThreadLocalAllocStats;
 
-// ThreadLocalAllocBuffer is a descriptor for thread-local storage used by
-// mutator threads for local/private allocation. As a TLAB is thread-private,
-// there is no concurrent/parallel access to its memory or its members,
-// other than by estimated_used_bytes().
+// ThreadLocalAllocBuffer: a descriptor for thread-local storage used by
+// the threads for allocation.
+//            It is thread-private at any time, but maybe multiplexed over
+//            time across multiple threads. The park()/unpark() pair is
+//            used to make it available for such multiplexing.
 //
-// Heap sampling is performed via the end and allocation_end
-// fields.
-// allocation_end contains the real end of the tlab allocation,
-// whereas end can be set to an arbitrary spot in the tlab to
-// trip the return and sample the allocation.
+//            Heap sampling is performed via the end and allocation_end
+//            fields.
+//            allocation_end contains the real end of the tlab allocation,
+//            whereas end can be set to an arbitrary spot in the tlab to
+//            trip the return and sample the allocation.
 class ThreadLocalAllocBuffer: public CHeapObj<mtThread> {
   friend class VMStructs;
+  friend class JVMCIVMStructs;
 private:
   HeapWord* _start;                              // address of TLAB
   HeapWord* _top;                                // address after last allocation
@@ -52,35 +54,19 @@ private:
   HeapWord* _allocation_end;                     // end for allocations (actual TLAB end, excluding alignment_reserve)
 
   size_t    _desired_size;                       // desired size   (including alignment_reserve)
-
-  // If too many slow allocations (outside TLAB) happen, we increase
-  // _refill_waste_limit. This reduces outside-TLAB allocations at
-  // the expense of wasting more memory, i.e., the TLAB is discarded sooner.
   size_t    _refill_waste_limit;                 // hold onto tlab if free() is larger than this
-  uint64_t  _allocated_before_last_gc;           // total bytes allocated up until the last gc
+  size_t    _allocated_before_last_gc;           // total bytes allocated up until the last gc
 
-  static size_t   _max_size;                     // maximum size of any TLAB
-  static unsigned _target_num_refills;           // expected number of refills between GCs
+  static size_t   _max_size;                          // maximum size of any TLAB
+  static unsigned _target_refills;                    // expected number of refills between GCs
 
-  unsigned  _num_refills;
-  // TLAB retirement is invoked in two main contexts:
-  // 1. TLAB refill:
-  //    The current TLAB is insufficient to satisfy a pending allocation
-  //    request, triggering a refill. The remaining space in the current
-  //    TLAB is treated as waste and tracked in _refill_waste.
-  // 2. Before GC:
-  //    Invoked at the start of a GC cycle to ensure heap parsability.
-  //    The unused space in the current TLAB is treated as waste and
-  //    tracked in _gc_waste.
+  unsigned  _number_of_refills;
   unsigned  _refill_waste;
   unsigned  _gc_waste;
-  unsigned  _num_slow_allocations;
-
-  // Allocated size for filling TLAB in HeapWords
+  unsigned  _slow_allocations;
   size_t    _allocated_size;
 
-  // Fraction of eden allocated by this thread, used for sizing its TLAB.
-  AdaptiveWeightedAverage _allocation_fraction;
+  AdaptiveWeightedAverage _allocation_fraction;  // fraction of eden allocated in tlabs
 
   void reset_statistics();
 
@@ -93,6 +79,8 @@ private:
   void set_refill_waste_limit(size_t waste)      { _refill_waste_limit = waste;  }
 
   size_t initial_refill_waste_limit();
+
+  static int    target_refills()                 { return _target_refills; }
   size_t initial_desired_size();
 
   size_t remaining();
@@ -105,13 +93,15 @@ private:
 
   void accumulate_and_reset_statistics(ThreadLocalAllocStats* stats);
 
-  Thread* thread() const;
+  void print_stats(const char* tag);
+
+  Thread* thread();
 
   // statistics
 
-  int num_refills() const                        { return _num_refills; }
-  int gc_waste() const                           { return _gc_waste; }
-  int num_slow_allocations() const               { return _num_slow_allocations; }
+  int number_of_refills() const { return _number_of_refills; }
+  int gc_waste() const          { return _gc_waste; }
+  int slow_allocations() const  { return _slow_allocations; }
 
 public:
   ThreadLocalAllocBuffer();
@@ -125,18 +115,17 @@ public:
   HeapWord* end() const                          { return _end; }
   HeapWord* top() const                          { return _top; }
   HeapWord* hard_end();
+  HeapWord* pf_top() const                       { return _pf_top; }
   size_t desired_size() const                    { return _desired_size; }
+  size_t used() const                            { return pointer_delta(top(), start()); }
   size_t used_bytes() const                      { return pointer_delta(top(), start(), 1); }
   size_t free() const                            { return pointer_delta(end(), top()); }
   // Don't discard tlab if remaining space is larger than this.
   size_t refill_waste_limit() const              { return _refill_waste_limit; }
 
-  // Returns an estimate of the number of bytes currently used in the TLAB.
-  // Due to races with concurrent allocations and/or resetting the TLAB the return
-  // value may be inconsistent with any other metrics (e.g. total allocated
-  // bytes), and may just incorrectly return 0.
-  // Intended for external inspection only where accuracy is not 100% required.
-  size_t estimated_used_bytes() const;
+  // For external inspection.
+  const HeapWord* start_relaxed() const;
+  const HeapWord* top_relaxed() const;
 
   // Allocate size HeapWords. The memory is NOT initialized to zero.
   inline HeapWord* allocate(size_t size);
@@ -181,6 +170,14 @@ public:
 
   static size_t refill_waste_limit_increment();
 
+  template <typename T> void addresses_do(T f) {
+    f(&_start);
+    f(&_top);
+    f(&_pf_top);
+    f(&_end);
+    f(&_allocation_end);
+  }
+
   // Code generation support
   static ByteSize start_offset()                 { return byte_offset_of(ThreadLocalAllocBuffer, _start); }
   static ByteSize end_offset()                   { return byte_offset_of(ThreadLocalAllocBuffer, _end); }
@@ -190,45 +187,41 @@ public:
 
 class ThreadLocalAllocStats : public StackObj {
 private:
-  static PerfVariable* _perf_num_allocating_threads;
-  static PerfVariable* _perf_total_num_refills;
-  static PerfVariable* _perf_max_num_refills;
-  static PerfVariable* _perf_total_allocated_size;
+  static PerfVariable* _perf_allocating_threads;
+  static PerfVariable* _perf_total_refills;
+  static PerfVariable* _perf_max_refills;
+  static PerfVariable* _perf_total_allocations;
   static PerfVariable* _perf_total_gc_waste;
   static PerfVariable* _perf_max_gc_waste;
   static PerfVariable* _perf_total_refill_waste;
   static PerfVariable* _perf_max_refill_waste;
-  static PerfVariable* _perf_total_num_slow_allocations;
-  static PerfVariable* _perf_max_num_slow_allocations;
+  static PerfVariable* _perf_total_slow_allocations;
+  static PerfVariable* _perf_max_slow_allocations;
 
-  static AdaptiveWeightedAverage _num_allocating_threads_avg;
-  static AdaptiveWeightedAverage _total_requested_size_fraction;
+  static AdaptiveWeightedAverage _allocating_threads_avg;
 
-  unsigned int _num_allocating_threads;
-  unsigned int _total_num_refills;
-  unsigned int _max_num_refills;
-  size_t       _total_allocated_size;
-  size_t       _total_requested_bytes;
+  unsigned int _allocating_threads;
+  unsigned int _total_refills;
+  unsigned int _max_refills;
+  size_t       _total_allocations;
   size_t       _total_gc_waste;
   size_t       _max_gc_waste;
   size_t       _total_refill_waste;
   size_t       _max_refill_waste;
-  unsigned int _total_num_slow_allocations;
-  unsigned int _max_num_slow_allocations;
+  unsigned int _total_slow_allocations;
+  unsigned int _max_slow_allocations;
 
 public:
   static void initialize();
-  static unsigned int num_allocating_threads_avg();
-  static float total_requested_size_fraction_avg();
+  static unsigned int allocating_threads_avg();
 
   ThreadLocalAllocStats();
 
-  void update_current_thread_stats(unsigned int num_refills,
-                                   size_t requested_bytes,
-                                   size_t alloc_size_for_tlab,
-                                   size_t gc_waste,
-                                   size_t refill_waste,
-                                   unsigned int num_slow_allocations);
+  void update_fast_allocations(unsigned int refills,
+                               size_t allocations,
+                               size_t gc_waste,
+                               size_t refill_waste);
+  void update_slow_allocations(unsigned int allocations);
   void update(const ThreadLocalAllocStats& other);
 
   void reset();

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2001, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,8 +25,6 @@
 package sun.jvm.hotspot.debugger.cdbg;
 
 import sun.jvm.hotspot.debugger.*;
-import sun.jvm.hotspot.runtime.*;
-import sun.jvm.hotspot.utilities.*;
 
 /** Models a "C" programming language frame on the stack -- really
     just an arbitrary frame with hooks to access C and C++ debug
@@ -39,7 +37,7 @@ public interface CFrame {
   public CFrame sender(ThreadProxy th);
 
   /** Find sender frame with given FP and PC */
-  public default CFrame sender(ThreadProxy th, Address senderSP, Address senderFP, Address senderPC) {
+  public default CFrame sender(ThreadProxy th, Address fp, Address pc) {
     return sender(th);
   }
 
@@ -72,9 +70,4 @@ public interface CFrame {
   /** Visit all local variables in this frame if debug information is
       available. Automatically descends into compound types and arrays. */
   public void iterateLocals(ObjectVisitor v);
-
-  /** Get Frame instance assosiated with this CFrame. */
-  public default Frame toFrame() {
-    throw new UnsupportedPlatformException();
-  }
 }

@@ -49,11 +49,9 @@ public class AsyncExceptionTest extends Thread {
     private final static int DEF_TIME_MAX = 30;  // default max # secs to test
     private final static String PROG_NAME = "AsyncExceptionTest";
 
-    // Avoid using CountDownLatch or similar objects that require unparking the
-    // main thread. Otherwise, if the main thread is run as a virtual thread, the
-    // async exception could be sent while the target is still executing FJP logic.
-    public volatile boolean started = false;
+    public CountDownLatch startSyncObj = new CountDownLatch(1);
 
+    private boolean firstEntry = true;
     private boolean receivedThreadDeathinInternal1 = false;
     private boolean receivedThreadDeathinInternal2 = false;
     private volatile RuntimeException error = null;
@@ -79,7 +77,6 @@ public class AsyncExceptionTest extends Thread {
 
     public void internalRun1() {
         try {
-            started = true;
             while (!receivedThreadDeathinInternal2) {
               internalRun2();
             }
@@ -90,10 +87,16 @@ public class AsyncExceptionTest extends Thread {
 
     public void internalRun2() {
         try {
-            int myLocalCount = 1;
-            int myLocalCount2 = 1;
+            Integer myLocalCount = 1;
+            Integer myLocalCount2 = 1;
 
-            while (myLocalCount > 0) {
+            if (firstEntry) {
+                // Tell main thread we have started.
+                startSyncObj.countDown();
+                firstEntry = false;
+            }
+
+            while(myLocalCount > 0) {
                 myLocalCount2 = (myLocalCount % 3) / 2;
                 myLocalCount -= 1;
             }
@@ -125,9 +128,7 @@ public class AsyncExceptionTest extends Thread {
             thread.start();
             try {
                 // Wait for the worker thread to get going.
-                while (!thread.started) {
-                    Thread.sleep(1);
-                }
+                thread.startSyncObj.await();
                 // Send async exception and wait until it is thrown
                 JVMTIUtils.stopThread(thread);
                 thread.join();

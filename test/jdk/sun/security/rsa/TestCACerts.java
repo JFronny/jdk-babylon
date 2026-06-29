@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -21,27 +21,20 @@
  * questions.
  */
 
-/*
+/**
  * @test
  * @bug 4853305
  * @summary Test the new RSA provider can verify all the RSA certs in the cacerts file
- * @library /test/lib/
+ * @author Andreas Sterbenz
  */
 
 // this test serves as our known answer test
 
-import jtreg.SkippedException;
+import java.io.*;
+import java.util.*;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStream;
-import java.security.PublicKey;
-import java.security.KeyStore;
-import java.security.cert.X509Certificate;
-
-import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.List;
+import java.security.*;
+import java.security.cert.*;
 
 public class TestCACerts {
 
@@ -58,9 +51,6 @@ public class TestCACerts {
         KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
         ks.load(in, null);
         in.close();
-
-        final List<String> skippedCases = new ArrayList<>();
-
         for (Enumeration e = ks.aliases(); e.hasMoreElements(); ) {
             String alias = (String)e.nextElement();
             if (ks.isCertificateEntry(alias)) {
@@ -72,21 +62,13 @@ public class TestCACerts {
                     System.out.println("Signature algorithm: " + cert.getSigAlgName());
                     cert.verify(key, PROVIDER);
                 } else {
-                    System.out.println("Skipping cert with non-RSA key: " +
-                                       alg);
+                    System.out.println("Skipping cert with key: " + alg);
                 }
             } else {
-                skippedCases.add(String.format("[alias: %s]",
-                        alias));
                 System.out.println("Skipping alias " + alias);
             }
         }
         long stop = System.currentTimeMillis();
-
-        if (!skippedCases.isEmpty()) {
-            throw new SkippedException("Some tests were skipped " +
-                                       skippedCases);
-        }
         System.out.println("All tests passed (" + (stop - start) + " ms).");
     }
 

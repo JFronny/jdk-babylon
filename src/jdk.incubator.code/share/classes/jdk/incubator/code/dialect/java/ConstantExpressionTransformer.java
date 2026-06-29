@@ -33,11 +33,10 @@ import java.lang.invoke.MethodHandles;
 import java.util.Optional;
 
 import static jdk.incubator.code.dialect.core.CoreOp.constant;
-import static jdk.incubator.code.dialect.java.JavaOp.ConstantExpressionEvaluator;
+import static jdk.incubator.code.dialect.java.JavaOp.JavaExpression.ConstantExpressionEvaluator;
 
 /**
- * A transformer that replaces every operation that models a constant expression with a constant operation
- * whose value is the result of evaluating that constant expression.
+ * A transformer that replace every operation that model a constant expression with its value.
  */
 public class ConstantExpressionTransformer implements CodeTransformer {
     private final ConstantExpressionEvaluator constantExpressionEvaluator;
@@ -58,14 +57,6 @@ public class ConstantExpressionTransformer implements CodeTransformer {
         return b;
     }
 
-    /**
-     * Transforms an operation, replacing an operation that models a constant expression with a constant operation
-     * whose value is the result of evaluating that constant expression.
-     *
-     * @param l  the lookup to use for reflective access
-     * @param op the operation to transform
-     * @return the transformed operation
-     */
     public static Op transform(MethodHandles.Lookup l, Op op) {
         return op.transform(CodeContext.create(), new ConstantExpressionTransformer(new ConstantExpressionEvaluator(l)));
     }

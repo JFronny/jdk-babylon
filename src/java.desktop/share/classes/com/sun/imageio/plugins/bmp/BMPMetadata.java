@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -94,12 +94,10 @@ public class BMPMetadata extends IIOMetadata implements BMPConstants {
               null, null);
     }
 
-    @Override
     public boolean isReadOnly() {
         return true;
     }
 
-    @Override
     public Node getAsTree(String formatName) {
         if (formatName.equals(nativeMetadataFormatName)) {
             return getNativeTree();
@@ -179,7 +177,6 @@ public class BMPMetadata extends IIOMetadata implements BMPConstants {
     }
 
     // Standard tree node methods
-    @Override
     protected IIOMetadataNode getStandardChromaNode() {
 
         if ((palette != null) && (paletteSize > 0)) {
@@ -205,7 +202,6 @@ public class BMPMetadata extends IIOMetadata implements BMPConstants {
         return null;
     }
 
-    @Override
     protected IIOMetadataNode getStandardCompressionNode() {
         IIOMetadataNode node = new IIOMetadataNode("Compression");
 
@@ -216,7 +212,6 @@ public class BMPMetadata extends IIOMetadata implements BMPConstants {
         return node;
     }
 
-    @Override
     protected IIOMetadataNode getStandardDataNode() {
         IIOMetadataNode node = new IIOMetadataNode("Data");
 
@@ -235,7 +230,6 @@ public class BMPMetadata extends IIOMetadata implements BMPConstants {
         return node;
     }
 
-    @Override
     protected IIOMetadataNode getStandardDimensionNode() {
         if (yPixelsPerMeter > 0.0F && xPixelsPerMeter > 0.0F) {
             IIOMetadataNode node = new IIOMetadataNode("Dimension");
@@ -257,17 +251,14 @@ public class BMPMetadata extends IIOMetadata implements BMPConstants {
         return null;
     }
 
-    @Override
     public void setFromTree(String formatName, Node root) {
         throw new IllegalStateException(I18N.getString("BMPMetadata1"));
     }
 
-    @Override
     public void mergeTree(String formatName, Node root) {
         throw new IllegalStateException(I18N.getString("BMPMetadata1"));
     }
 
-    @Override
     public void reset() {
         throw new IllegalStateException(I18N.getString("BMPMetadata1"));
     }

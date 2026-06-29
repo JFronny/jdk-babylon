@@ -65,7 +65,7 @@ public final class CPUThrottleSetting extends SettingControl {
                 }
             }
         }
-        return highestRate == null ? DEFAULT_VALUE : highestRate.toString();
+        return Objects.requireNonNullElse(highestRate.toString(), DEFAULT_VALUE);
     }
 
     @Override

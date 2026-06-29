@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -83,13 +83,6 @@ public enum SourceVersion {
      *      preview, flexible constructor bodies in third preview)
      *  25: module import declarations, compact source files and
      *      instance main methods, and flexible constructor bodies
-     *      (primitive Types in Patterns, instanceof, and switch in
-     *      third preview)
-     *  26: no changes (primitive Types in Patterns, instanceof, and
-     *      switch in fourth preview)
-     *  27: no changes (primitive Types in Patterns, instanceof, and
-     *      switch in fifth preview)
-     *  28: tbd
      */
 
     /**
@@ -483,34 +476,10 @@ public enum SourceVersion {
      * @since 26
      *
      * @see <a
-     * href="https://docs.oracle.com/en/java/javase/26/docs/specs/jls/index.html">
+     * href="https://docs.oracle.com/javase/specs/jls/se26/html/index.html">
      * <cite>The Java Language Specification, Java SE 26 Edition</cite></a>
      */
     RELEASE_26,
-
-    /**
-     * The version introduced by the Java Platform, Standard Edition
-     * 27.
-     *
-     * @since 27
-     *
-     * @see <a
-     * href="https://docs.oracle.com/en/java/javase/27/docs/specs/jls/index.html">
-     * <cite>The Java Language Specification, Java SE 27 Edition</cite></a>
-     */
-    RELEASE_27,
-
-    /**
-     * The version introduced by the Java Platform, Standard Edition
-     * 28.
-     *
-     * @since 28
-     *
-     * @see <a
-     * href="https://docs.oracle.com/en/java/javase/28/docs/specs/jls/index.html">
-     * <cite>The Java Language Specification, Java SE 28 Edition</cite></a>
-     */
-    RELEASE_28,
     ; // Reduce code churn when appending new constants
 
     // Note that when adding constants for newer releases, the
@@ -520,7 +489,7 @@ public enum SourceVersion {
      * {@return the latest source version that can be modeled}
      */
     public static SourceVersion latest() {
-        return RELEASE_28;
+        return RELEASE_26;
     }
 
     private static final SourceVersion latestSupported = getLatestSupported();
@@ -535,7 +504,7 @@ public enum SourceVersion {
     private static SourceVersion getLatestSupported() {
         int intVersion = Runtime.version().feature();
         return (intVersion >= 11) ?
-            valueOf("RELEASE_" + Math.min(28, intVersion)):
+            valueOf("RELEASE_" + Math.min(26, intVersion)):
             RELEASE_10;
     }
 

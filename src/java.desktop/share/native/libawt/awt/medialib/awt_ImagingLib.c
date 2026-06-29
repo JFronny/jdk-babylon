@@ -1133,14 +1133,12 @@ fprintf(stderr,"Flags   : %d\n",dst->flags);
     {
         unsigned char *cP = (unsigned char *)mlib_ImageGetData(dst);
 
-        if (ddata == NULL) { // zero medialib allocated memory
-            memset(cP, 0, mlib_ImageGetWidth(dst) * mlib_ImageGetHeight(dst) * mlib_ImageGetChannels(dst));
-        }
+        memset(cP, 0, mlib_ImageGetWidth(dst)*mlib_ImageGetHeight(dst));
     }
 
     /* Perform the transformation */
-    status = (*sMlibFns[MLIB_AFFINE].fptr)(dst, src, mtx, filter, MLIB_EDGE_SRC_EXTEND);
-    if (status != MLIB_SUCCESS)
+    if ((status = (*sMlibFns[MLIB_AFFINE].fptr)(dst, src, mtx, filter,
+                                  MLIB_EDGE_SRC_EXTEND) != MLIB_SUCCESS))
     {
         printMedialibError(status);
         /* REMIND: Free the regions */

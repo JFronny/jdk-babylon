@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -65,12 +65,10 @@ class FieldStreamBase : public StackObj {
     _reader.read_field_counts(&java_fields_count, &injected_fields_count);
     if (_limit < _index) {
       _limit = java_fields_count + injected_fields_count;
+    } else {
+      assert( _limit <= java_fields_count + injected_fields_count, "Safety check");
     }
-    assert(_limit <= java_fields_count + injected_fields_count, "Safety check");
-    if (_index < _limit) {
-      if (_index != 0) {
-        _reader.skip_to_field_info(_index);
-      }
+    if (_limit != 0) {
       _reader.read_field_info(_fi_buf);
     }
    }
@@ -184,7 +182,7 @@ class JavaFieldStream : public FieldStreamBase {
 // Iterate over only the internal fields
 class InternalFieldStream : public FieldStreamBase {
  public:
-  InternalFieldStream(InstanceKlass* k):      FieldStreamBase(k->fieldinfo_stream(), k->constants(), k->java_fields_count(), -1) {}
+  InternalFieldStream(InstanceKlass* k):      FieldStreamBase(k->fieldinfo_stream(), k->constants(), k->java_fields_count(), 0) {}
 };
 
 

@@ -828,7 +828,7 @@ public abstract class PKCS11Test {
 
     private void premain(Provider p) throws Exception {
         if (skipTest(p)) {
-            throw new SkippedException("See logs for details");
+            return;
         }
 
         long start = System.currentTimeMillis();

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,7 +25,7 @@
  * @test
  * @bug 8246774
  * @summary Basic tests for readResolve
- * @run junit ReadResolveTest
+ * @run testng ReadResolveTest
  */
 
 import java.io.ByteArrayInputStream;
@@ -35,19 +35,15 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serial;
 import java.io.Serializable;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
 import static java.lang.String.format;
 import static java.lang.System.out;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+import static org.testng.Assert.assertEquals;
 
 /**
  * Tests records being used as a serial proxy.
  */
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class ReadResolveTest {
 
     static class C1 implements Serializable {
@@ -98,6 +94,7 @@ public class ReadResolveTest {
         }
     }
 
+    @DataProvider(name = "objectsToSerialize")
     public Object[][] objectsToSerialize() {
         return new Object[][] {
                 new Object[] { new C1(3,4)        },
@@ -106,14 +103,13 @@ public class ReadResolveTest {
         };
     }
 
-    @ParameterizedTest
-    @MethodSource("objectsToSerialize")
+    @Test(dataProvider = "objectsToSerialize")
     public void testSerialize(Object objectToSerialize) throws Exception {
         out.println("\n---");
         out.println("serializing : " + objectToSerialize);
         Object deserializedObj = serializeDeserialize(objectToSerialize);
         out.println("deserialized: " + deserializedObj);
-        assertEquals(objectToSerialize, deserializedObj);
+        assertEquals(deserializedObj, objectToSerialize);
     }
 
     // -- null replacement
@@ -132,7 +128,7 @@ public class ReadResolveTest {
         out.println("serializing : " + objectToSerialize);
         Object deserializedObj = serializeDeserialize(objectToSerialize);
         out.println("deserialized: " + deserializedObj);
-        assertEquals(null, deserializedObj);
+        assertEquals(deserializedObj, null);
     }
 
     // --- infra

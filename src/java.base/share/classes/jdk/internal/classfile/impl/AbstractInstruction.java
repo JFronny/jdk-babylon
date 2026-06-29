@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022, 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -289,7 +289,9 @@ public abstract sealed class AbstractInstruction
             afterPad = code.codeStart + RawBytecodeHelper.align(pos + 1 - code.codeStart);
             low = code.classReader.readInt(afterPad + 4);
             high = code.classReader.readInt(afterPad + 8);
-            BytecodeHelpers.validateTableSwitchValues(low, high, code.codeLength);
+            if (high < low || (long)high - low > code.codeLength >> 2) {
+                throw new IllegalArgumentException("Invalid tableswitch values low: " + low + " high: " + high);
+            }
             int cnt = high - low + 1;
             size = afterPad + 12 + cnt * 4 - pos;
         }
@@ -830,8 +832,10 @@ public abstract sealed class AbstractInstruction
         final int slot;
         final int constant;
 
-        public UnboundIncrementInstruction(Opcode op, int slot, int constant) {
-            super(op);
+        public UnboundIncrementInstruction(int slot, int constant) {
+            super(BytecodeHelpers.validateAndIsWideIinc(slot, constant)
+                  ? Opcode.IINC_W
+                  : Opcode.IINC);
             this.slot = slot;
             this.constant = constant;
         }
@@ -924,7 +928,6 @@ public abstract sealed class AbstractInstruction
 
         public UnboundTableSwitchInstruction(int lowValue, int highValue, Label defaultTarget, List<SwitchCase> cases) {
             super(Opcode.TABLESWITCH);
-            BytecodeHelpers.validateTableSwitchValues(lowValue, highValue);
             this.lowValue = lowValue;
             this.highValue = highValue;
             this.defaultTarget = requireNonNull(defaultTarget);

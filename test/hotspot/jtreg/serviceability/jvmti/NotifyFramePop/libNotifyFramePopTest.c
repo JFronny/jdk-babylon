@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -44,7 +44,7 @@ extern "C" {
 static jvmtiEnv *jvmti = NULL;
 static jvmtiCapabilities caps;
 static jvmtiEventCallbacks callbacks;
-static jint framePopsReceived = 0;
+static jboolean framePopReceived = JNI_FALSE;
 
 static jint Agent_Initialize(JavaVM *jvm, char *options, void *reserved);
 
@@ -80,7 +80,7 @@ FramePop(jvmtiEnv *jvmti_env, JNIEnv *env, jthread thread,
     char* name = NULL;
     char* sign = NULL;
 
-    ++framePopsReceived;
+    framePopReceived = JNI_TRUE;
 
     err = (*jvmti_env)->GetMethodDeclaringClass(jvmti_env, method, &cls);
     if (err != JVMTI_ERROR_NONE) {
@@ -155,21 +155,16 @@ Java_NotifyFramePopTest_setFramePopNotificationMode(JNIEnv *env, jclass cl, jboo
 JNIEXPORT void JNICALL
 Java_NotifyFramePopTest_notifyFramePop(JNIEnv *env, jclass cls, jthread thread)
 {
-    // Request two FramePop events at depth 1 and 2.
-    jvmtiError err = (*jvmti)->NotifyFramePop(jvmti, thread, 1);
+    jvmtiError err= (*jvmti)->NotifyFramePop(jvmti, thread, 1);
     if (err != JVMTI_ERROR_NONE) {
-        reportError("NotifyFramePop at depth 1 failed", err);
-    }
-    err = (*jvmti)->NotifyFramePop(jvmti, thread, 2);
-    if (err != JVMTI_ERROR_NONE) {
-        reportError("NotifyFramePop at depth 2 failed", err);
+        reportError("NotifyFramePop failed", err);
     }
 }
 
-JNIEXPORT jint JNICALL
-Java_NotifyFramePopTest_framePopsReceived(JNIEnv *env, jclass cls) {
-    jint result = framePopsReceived;
-    framePopsReceived = 0;
+JNIEXPORT jboolean JNICALL
+Java_NotifyFramePopTest_framePopReceived(JNIEnv *env, jclass cls) {
+    jboolean result = framePopReceived;
+    framePopReceived = JNI_FALSE;
     return result;
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2017, 2020, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -24,22 +24,16 @@
 
 /*
  * @test
+ * @key randomness
  *
  * @summary converted from VM Testbase nsk/monitoring/GarbageCollectorMXBean/CollectionCounters/CollectionCounters003.
  * VM Testbase keywords: [monitoring]
  *
  * @library /vmTestbase
  *          /test/lib
- *
- * @build jdk.test.whitebox.WhiteBox
- * @requires vm.opt.DisableExplicitGC != "true"
- * @requires vm.compMode != "Xcomp"
- *
- * @run driver jdk.test.lib.helpers.ClassFileInstaller jdk.test.whitebox.WhiteBox
- * @run main/othervm -Xbootclasspath/a:. -XX:+UnlockDiagnosticVMOptions -XX:+WhiteBoxAPI -XX:-UseGCOverheadLimit
+ * @run main/othervm
  *      nsk.monitoring.GarbageCollectorMXBean.CollectionCounters.CollectionCounters001.CollectionCounters001
  *      -testMode=server
  *      -MBeanServer=custom
- *      -iterations=5
  */
 

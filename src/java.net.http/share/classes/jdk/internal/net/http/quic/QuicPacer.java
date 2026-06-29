@@ -30,8 +30,10 @@ import jdk.internal.net.http.common.Log;
 import jdk.internal.net.http.common.Utils;
 import jdk.internal.util.OperatingSystem;
 
+import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Implementation of pacing.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2017, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -26,19 +26,11 @@
  * @bug 6318171 6931562
  * @requires os.family == "windows"
  * @modules jdk.crypto.mscapi/sun.security.mscapi
- * @library /test/lib/
  * @run main/othervm IsSunMSCAPIAvailable
  */
 
-import jtreg.SkippedException;
-
-import java.security.GeneralSecurityException;
-import java.security.KeyPairGenerator;
 import java.security.Provider;
-import java.security.SecureRandom;
-import java.security.Security;
-import java.security.Signature;
-import java.security.KeyStore;
+import java.security.*;
 import javax.crypto.Cipher;
 
 public class IsSunMSCAPIAvailable {
@@ -113,7 +105,7 @@ public class IsSunMSCAPIAvailable {
                 cipher.getClass().getName());
 
         } catch (GeneralSecurityException e) {
-            throw new SkippedException("Cipher not supported by provider");
+            System.out.println("Cipher not supported by provider, skipping...");
         }
     }
 }

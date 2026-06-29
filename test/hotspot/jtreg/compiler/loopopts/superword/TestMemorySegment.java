@@ -34,7 +34,6 @@ import java.lang.foreign.*;
 /*
  * @test id=byte-array
  * @bug 8329273
- * @key randomness
  * @summary Test vectorization of loops over MemorySegment
  * @library /test/lib /
  * @run driver compiler.loopopts.superword.TestMemorySegment ByteArray

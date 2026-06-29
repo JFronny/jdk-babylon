@@ -74,7 +74,7 @@ public final class QuicTLSContext {
     /**
      * {@return {@code true} if protocols of the given {@code parameters} support QUIC TLS, {@code false} otherwise}
      */
-    private static boolean isQuicCompatible(SSLParameters parameters) {
+    public static boolean isQuicCompatible(SSLParameters parameters) {
         String[] protocols = parameters.getProtocols();
         return protocols != null && Arrays.asList(protocols).contains("TLSv1.3");
     }

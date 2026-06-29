@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2022, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -78,22 +78,14 @@ public class DESedeKeySpec implements java.security.spec.KeySpec {
      *
      * @exception NullPointerException if <code>key</code> is null.
      * @exception InvalidKeyException if the given key material, starting at
-     * <code>offset</code> inclusive, is shorter than 24 bytes.
-     * @exception ArrayIndexOutOfBoundsException if <code>offset</code> is
-     * negative.
+     * <code>offset</code> inclusive, is shorter than 24 bytes
      */
     public DESedeKeySpec(byte[] key, int offset) throws InvalidKeyException {
-        if (key == null) {
-            throw new NullPointerException("null key");
-        }
-        if (key.length - offset < DES_EDE_KEY_LEN) {
+        if (key.length - offset < 24) {
             throw new InvalidKeyException("Wrong key size");
         }
-        if (offset < 0) {
-            throw new ArrayIndexOutOfBoundsException("offset is negative");
-        }
         this.key = new byte[24];
-        System.arraycopy(key, offset, this.key, 0, DES_EDE_KEY_LEN);
+        System.arraycopy(key, offset, this.key, 0, 24);
     }
 
     /**
@@ -115,23 +107,15 @@ public class DESedeKeySpec implements java.security.spec.KeySpec {
      * @return true if the given DES-EDE key is parity-adjusted, false
      * otherwise
      *
-     * @exception InvalidKeyException if the given key material is
-     * <code>null</code>, or starting at <code>offset</code> inclusive, is
-     * shorter than 8 bytes.
-     * @exception ArrayIndexOutOfBoundsException if <code>offset</code> is
-     * negative.
+     * @exception NullPointerException if <code>key</code> is null.
+     * @exception InvalidKeyException if the given key material, starting at
+     * <code>offset</code> inclusive, is shorter than 24 bytes
      */
     public static boolean isParityAdjusted(byte[] key, int offset)
         throws InvalidKeyException {
-        if (key == null) {
-            throw new InvalidKeyException("null key");
-        }
-        if (key.length - offset < DES_EDE_KEY_LEN) {
-            throw new InvalidKeyException("Wrong key size");
-        }
-        if (offset < 0) {
-            throw new ArrayIndexOutOfBoundsException("offset is negative");
-        }
+            if (key.length - offset < 24) {
+                throw new InvalidKeyException("Wrong key size");
+            }
         return DESKeySpec.isParityAdjusted(key, offset)
                 && DESKeySpec.isParityAdjusted(key, offset + 8)
                 && DESKeySpec.isParityAdjusted(key, offset + 16);

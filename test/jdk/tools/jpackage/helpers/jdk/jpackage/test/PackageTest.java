@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -22,7 +22,7 @@
  */
 package jdk.jpackage.test;
 
-import static jdk.jpackage.internal.util.function.ExceptionBox.toUnchecked;
+import static jdk.jpackage.internal.util.function.ExceptionBox.rethrowUnchecked;
 import static jdk.jpackage.internal.util.function.ThrowingBiConsumer.toBiConsumer;
 import static jdk.jpackage.internal.util.function.ThrowingConsumer.toConsumer;
 import static jdk.jpackage.internal.util.function.ThrowingSupplier.toSupplier;
@@ -143,7 +143,7 @@ public final class PackageTest extends RunnablePackageTest {
         return this;
     }
 
-    private PackageTest addInitializer(ThrowingConsumer<JPackageCommand, ? extends Exception> v, String id) {
+    private PackageTest addInitializer(ThrowingConsumer<JPackageCommand> v, String id) {
         Objects.requireNonNull(v);
         if (id != null) {
             if (namedInitializers.contains(id)) {
@@ -156,11 +156,11 @@ public final class PackageTest extends RunnablePackageTest {
         return this;
     }
 
-    private PackageTest addRunOnceInitializer(ThrowingRunnable<? extends Exception> v, String id) {
+    private PackageTest addRunOnceInitializer(ThrowingRunnable v, String id) {
         Objects.requireNonNull(v);
-        return addInitializer(new ThrowingConsumer<JPackageCommand, Exception>() {
+        return addInitializer(new ThrowingConsumer<JPackageCommand>() {
             @Override
-            public void accept(JPackageCommand unused) throws Exception {
+            public void accept(JPackageCommand unused) throws Throwable {
                 if (!executed) {
                     executed = true;
                     v.run();
@@ -171,21 +171,21 @@ public final class PackageTest extends RunnablePackageTest {
         }, id);
     }
 
-    public PackageTest addInitializer(ThrowingConsumer<JPackageCommand, ? extends Exception> v) {
+    public PackageTest addInitializer(ThrowingConsumer<JPackageCommand> v) {
         return addInitializer(v, null);
     }
 
-    public PackageTest addRunOnceInitializer(ThrowingRunnable<? extends Exception> v) {
+    public PackageTest addRunOnceInitializer(ThrowingRunnable v) {
         return addRunOnceInitializer(v, null);
     }
 
-    public PackageTest addBundleVerifier(ThrowingBiConsumer<JPackageCommand, Executor.Result, ? extends Exception> v) {
+    public PackageTest addBundleVerifier(ThrowingBiConsumer<JPackageCommand, Executor.Result> v) {
         Objects.requireNonNull(v);
         currentTypes.forEach(type -> handlers.get(type).addBundleVerifier(toBiConsumer(v)));
         return this;
     }
 
-    public PackageTest addBundleVerifier(ThrowingConsumer<JPackageCommand, ? extends Exception> v) {
+    public PackageTest addBundleVerifier(ThrowingConsumer<JPackageCommand> v) {
         Objects.requireNonNull(v);
         return addBundleVerifier((cmd, unused) -> toConsumer(v).accept(cmd));
     }
@@ -222,13 +222,13 @@ public final class PackageTest extends RunnablePackageTest {
         return this;
     }
 
-    public PackageTest addInstallVerifier(ThrowingConsumer<JPackageCommand, ? extends Exception> v) {
+    public PackageTest addInstallVerifier(ThrowingConsumer<JPackageCommand> v) {
         currentTypes.forEach(type -> handlers.get(type).addInstallVerifier(
                 toConsumer(v)));
         return this;
     }
 
-    public PackageTest addUninstallVerifier(ThrowingConsumer<JPackageCommand, ? extends Exception> v) {
+    public PackageTest addUninstallVerifier(ThrowingConsumer<JPackageCommand> v) {
         currentTypes.forEach(type -> handlers.get(type).addUninstallVerifier(
                 toConsumer(v)));
         return this;
@@ -259,7 +259,7 @@ public final class PackageTest extends RunnablePackageTest {
     }
 
     static void withFileAssociationsTestRuns(FileAssociations fa,
-            ThrowingBiConsumer<FileAssociations.TestRun, List<Path>, ? extends Exception> consumer) {
+            ThrowingBiConsumer<FileAssociations.TestRun, List<Path>> consumer) {
         Objects.requireNonNull(consumer);
         for (var testRun : fa.getTestRuns()) {
             TKit.withTempDirectory("fa-test-files", tempDir -> {
@@ -726,30 +726,12 @@ public final class PackageTest extends RunnablePackageTest {
                 }
 
                 case CREATE -> {
-                    var nullableOutputBundle = cmd.nullableOutputBundle();
-
-                    var oldOutputBundleSnapshot = nullableOutputBundle
-                            .filter(Files::exists)
-                            .filter(_ -> {
-                                return !cmd.isRemoveOldOutputBundle();
-                            })
-                            .map(TKit.PathSnapshot::new);
-
-                    var result = cmd.execute(expectedJPackageExitCode);
-
+                    Executor.Result result = cmd.execute(expectedJPackageExitCode);
                     if (expectedJPackageExitCode == 0) {
                         TKit.assertFileExists(cmd.outputBundle());
                     } else {
-                        nullableOutputBundle.ifPresent(outputBundle -> {
-                            oldOutputBundleSnapshot.ifPresentOrElse(snapshot -> {
-                                // jpackage failed, but the output bundle exists.
-                                // This output bundle existed before the jpackage was invoked.
-                                // Verify jpackage didn't modify it.
-                                new TKit.PathSnapshot(outputBundle).assertEquals(snapshot, String.format(
-                                        "Check jpackage didn't modify the old output bundle [%s]", outputBundle));
-                            }, () -> {
-                                TKit.assertPathExists(outputBundle, false);
-                            });
+                        cmd.nullableOutputBundle().ifPresent(outputBundle -> {
+                            TKit.assertPathExists(outputBundle, false);
                         });
                     }
                     verifyPackageBundle(cmd, result, expectedJPackageExitCode);
@@ -878,7 +860,7 @@ public final class PackageTest extends RunnablePackageTest {
                                 "Check the package has %d top installation directories",
                                 expectedRootCount));
             } catch (IOException ex) {
-                throw toUnchecked(ex);
+                rethrowUnchecked(ex);
             }
         }
 

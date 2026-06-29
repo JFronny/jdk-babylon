@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1998, 2020, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -33,7 +33,7 @@ import java.io.Reader;
  * An SQL {@code CLOB} is a built-in type
  * that stores a Character Large Object as a column value in a row of
  * a database table.
- * By default, drivers implement a {@code Clob} object using an SQL
+ * By default drivers implement a {@code Clob} object using an SQL
  * {@code locator(CLOB)}, which means that a {@code Clob} object
  * contains a logical pointer to the SQL {@code CLOB} data rather than
  * the data itself. A {@code Clob} object is valid for the duration
@@ -49,19 +49,13 @@ import java.io.Reader;
  * access an SQL {@code CLOB} value.  In addition, this interface
  * has methods for updating a {@code CLOB} value.
  * <p>
- * To release resources used by the {@code Clob} object, applications must call
- * either the {@link #free()} or the {@link #close()} method.  Any attempt to
- * invoke a method other than {@link #free()} or {@link #close()} after the
- * {@code Clob} object has been closed, will result in a {@link SQLException}
- * being thrown.
- * <P>
  * All methods on the {@code Clob} interface must be
  * fully implemented if the JDBC driver supports the data type.
  *
  * @since 1.2
  */
 
-public interface Clob extends AutoCloseable {
+public interface Clob {
 
   /**
    * Retrieves the number of characters
@@ -316,10 +310,14 @@ public interface Clob extends AutoCloseable {
     void truncate(long len) throws SQLException;
 
     /**
-     * Closes and releases the resources held by this {@code Clob} object.
+     * This method releases the resources that the {@code Clob} object
+     * holds.  The object is invalid once the {@code free} method
+     * is called.
      * <p>
-     * If the {@code Clob} object is already closed, then invoking this method
-     * has no effect.
+     * After {@code free} has been called, any attempt to invoke a
+     * method other than {@code free} will result in a {@code SQLException}
+     * being thrown.  If {@code free} is called multiple times, the subsequent
+     * calls to {@code free} are treated as a no-op.
      *
      * @throws SQLException if an error occurs releasing
      *         the Clob's resources
@@ -327,7 +325,6 @@ public interface Clob extends AutoCloseable {
      * @throws SQLFeatureNotSupportedException if the JDBC driver
      *         does not support this method
      * @since 1.6
-     * @see #close()
      */
     void free() throws SQLException;
 
@@ -353,21 +350,4 @@ public interface Clob extends AutoCloseable {
      */
     Reader getCharacterStream(long pos, long length) throws SQLException;
 
-    /**
-     * Closes and releases the resources held by this {@code Clob} object.
-     * <p>
-     * If the {@code Clob} object is already closed, then invoking this method
-     * has no effect.
-     *
-     * @throws SQLException                    if an error occurs releasing
-     *                                         the Clob's resources
-     * @throws SQLFeatureNotSupportedException if the JDBC driver
-     *                                         does not support this method
-     * @implSpec The default implementation calls the {@link #free()} method.
-     * @see #free()
-     * @since 26
-     */
-    default void close() throws SQLException {
-      free();
-    };
 }

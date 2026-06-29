@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,7 +25,7 @@
 
 /*
  * @test
- * @bug 8298420 8365288 8377975
+ * @bug 8298420 8365288
  * @library /test/lib
  * @modules java.base/sun.security.pkcs
  *          java.base/sun.security.util
@@ -58,14 +58,12 @@ public class PEMDecoderTest {
     public static void main(String[] args) throws Exception {
         PEMDecoder decr;
 
-        PEMData.entryList.add(PEMData.insertPostHeaderChar(PEMData.ed25519priv, '\s'));
-        PEMData.entryList.add(PEMData.insertPostHeaderChar(PEMData.ed25519priv, '\t'));
         System.out.println("Decoder test:");
         PEMData.entryList.forEach(entry -> test(entry, false));
         System.out.println("Decoder test withFactory:");
         PEMData.entryList.forEach(entry -> test(entry, true));
         System.out.println("Decoder test returning DEREncodable class:");
-        PEMData.entryList.forEach(entry -> test(entry, BinaryEncodable.class));
+        PEMData.entryList.forEach(entry -> test(entry, DEREncodable.class));
         System.out.println("Decoder test with encrypted PEM:");
         PEMData.encryptedList.forEach(PEMDecoderTest::testEncrypted);
         System.out.println("Decoder test with OAS:");
@@ -101,7 +99,7 @@ public class PEMDecoderTest {
         System.out.println("Decoder test ecsecp256 to P8EKS:");
         decr.decode(PEMData.ecsecp256.pem(), PKCS8EncodedKeySpec.class);
 
-        System.out.println("Checking if content() returns the same encoding:");
+        System.out.println("Checking if decode() returns the same encoding:");
         PEMData.privList.forEach(PEMDecoderTest::testDERCheck);
         PEMData.oasList.forEach(PEMDecoderTest::testDERCheck);
 
@@ -110,22 +108,21 @@ public class PEMDecoderTest {
         PEMData.oasList.stream().filter(e -> !e.name().endsWith("xdh"))
                 .forEach(PEMDecoderTest::testSignature);
 
-        System.out.println("Checking if content() returns a PKCS8Key and can generate a pub");
+        System.out.println("Checking if decode() returns a PKCS8Key and can generate a pub");
         PEMData.oasList.forEach(PEMDecoderTest::testPKCS8Key);
 
         System.out.println("Checking if ecCSR:");
         test(PEMData.ecCSR);
         System.out.println("Checking if ecCSR with preData:");
-        BinaryEncodable result = d.decode(PEMData.ecCSRWithData.pem(), PEM.class);
+        DEREncodable result = d.decode(PEMData.ecCSRWithData.pem(), PEM.class);
         if (result instanceof PEM rec) {
             if (PEMData.preData.compareTo(new String(rec.leadingData())) != 0) {
                 System.err.println("expected: \"" + PEMData.preData + "\"");
                 System.err.println("received: \"" + new String(rec.leadingData()) + "\"");
                 throw new AssertionError("ecCSRWithData preData wrong");
             }
-            String s = rec.toString();
-            if (s.lastIndexOf("F") > s.length() - 5) {
-                System.err.println("received: " + s);
+            if (rec.content().lastIndexOf("F") > rec.content().length() - 5) {
+                System.err.println("received: " + rec.content());
                 throw new AssertionError("ecCSRWithData: " +
                     "End of PEM data has an unexpected character");
             }
@@ -163,6 +160,16 @@ public class PEMDecoderTest {
         }
         if (d.decode(bis, PEM.class).leadingData() != null) {
             throw new AssertionError("leading data not null on second pem");
+        }
+        System.out.println("PASS");
+
+        System.out.println("Check if PEM decode decodes content correctly");
+        final String tmpContent = "1234567";
+        final PEM tmpPem = new PEM("ONE", tmpContent);
+        if (!Arrays.equals(
+                Base64.getDecoder().decode(tmpContent),
+                tmpPem.decode())) {
+            throw new AssertionError("PEM decode error");
         }
         System.out.println("PASS");
 
@@ -208,13 +215,7 @@ public class PEMDecoderTest {
         bos.write("--------\n".getBytes(StandardCharsets.ISO_8859_1));
         bos.write(PEMData.ecsecp256ekpi.pem().getBytes(StandardCharsets.ISO_8859_1));
         bis = new ByteArrayInputStream(bos.toByteArray());
-        d.decode(bis, PEM.class);
-
-        d.decode(PEMData.encpkcs1, PEM.class);
-        try {
-            d.decode(PEMData.ecCSR.pem(), BinaryEncodable.class);
-            throw new AssertionError("decode(s, BinaryEncodable.class passed");
-        } catch (ClassCastException _) {}
+        result = d.decode(bis, PEM.class);
     }
 
     static void testInputStream() throws IOException {
@@ -284,14 +285,12 @@ public class PEMDecoderTest {
 
     static void testPEMRecord(PEMData.Entry entry) {
         PEM r = d.decode(entry.pem(), PEM.class);
-        int start = entry.pem().indexOf("-----");
-        int end = entry.pem().lastIndexOf("-----");
-        String expected = entry.pem().substring(start, end);
+        String expected = entry.pem().split("-----")[2].replace(System.lineSeparator(), "");
         try {
-            PEMData.checkResults(expected, r.toString());
+            PEMData.checkResults(expected, r.content());
         } catch (AssertionError e) {
             System.err.println("expected:\n" + expected);
-            System.err.println("received:\n" + r);
+            System.err.println("received:\n" + r.content());
             throw e;
         }
 
@@ -321,7 +320,7 @@ public class PEMDecoderTest {
 
     static void testPEMRecordDecode(PEMData.Entry entry) {
         PEM r = d.decode(entry.pem(), PEM.class);
-        BinaryEncodable de = d.decode(r.toString());
+        DEREncodable de = d.decode(r.toString());
 
         boolean result = switch(r.type()) {
             case Pem.PRIVATE_KEY ->
@@ -370,7 +369,7 @@ public class PEMDecoderTest {
         }
     }
 
-    static BinaryEncodable testEncrypted(PEMData.Entry entry) {
+    static DEREncodable testEncrypted(PEMData.Entry entry) {
         PEMDecoder decoder;
         if (!Objects.equals(entry.clazz(), EncryptedPrivateKeyInfo.class)) {
             decoder = d.withDecryption(entry.password());
@@ -387,27 +386,27 @@ public class PEMDecoderTest {
     }
 
     // Change the Entry to use the given class as the expected class returned
-    static BinaryEncodable test(PEMData.Entry entry, Class c) {
+    static DEREncodable test(PEMData.Entry entry, Class c) {
         return test(entry.newClass(c), false);
     }
 
     // Run test with a given Entry
-    static BinaryEncodable test(PEMData.Entry entry) {
+    static DEREncodable test(PEMData.Entry entry) {
         return test(entry, false);
     }
 
     // Run test with a given Entry
-    static BinaryEncodable test(PEMData.Entry entry, boolean withFactory) {
+    static DEREncodable test(PEMData.Entry entry, boolean withFactory) {
         System.out.printf("Testing %s %s%n", entry.name(), entry.provider());
         try {
             PEMDecoder pemDecoder;
             if (withFactory) {
                 Provider provider = Security.getProvider(entry.provider());
-                pemDecoder = d.withFactoriesOf(provider);
+                pemDecoder = d.withFactory(provider);
             } else {
                 pemDecoder = d;
             }
-            BinaryEncodable r = test(entry.pem(), entry.clazz(), pemDecoder);
+            DEREncodable r = test(entry.pem(), entry.clazz(), pemDecoder);
             System.out.println("PASS (" + entry.name() + ")");
             return r;
         } catch (Exception | AssertionError e) {
@@ -443,9 +442,9 @@ public class PEMDecoderTest {
      * Perform the decoding test with the given decoder, on the given pem, and
      * expect the clazz to be returned.
      */
-    static BinaryEncodable test(String pem, Class clazz, PEMDecoder decoder)
+    static DEREncodable test(String pem, Class clazz, PEMDecoder decoder)
         throws IOException {
-        BinaryEncodable pk = decoder.decode(pem);
+        DEREncodable pk = decoder.decode(pem);
 
         // Check that clazz matches what pk returned.
         if (pk.getClass().equals(clazz)) {
@@ -552,7 +551,7 @@ public class PEMDecoderTest {
         byte[] data = "12345678".getBytes();
         PrivateKey privateKey;
 
-        BinaryEncodable der = d.decode(entry.pem());
+        DEREncodable der = d.decode(entry.pem());
         switch (der) {
             case PrivateKey p -> privateKey = p;
             case KeyPair kp -> privateKey = kp.getPrivate();

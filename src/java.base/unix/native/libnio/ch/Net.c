@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2001, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -929,13 +929,13 @@ Java_sun_nio_ch_Net_pollConnect(JNIEnv *env, jobject this, jobject fdo, jlong ti
         errno = 0;
         result = getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &n);
         if (result < 0) {
-            handleSocketErrorWithMessage(env, errno, "getsockopt failed");
+            handleSocketError(env, errno);
             return JNI_FALSE;
         } else if (error) {
-            handleSocketErrorWithMessage(env, error, "connect failed");
+            handleSocketError(env, error);
             return JNI_FALSE;
         } else if ((poller.revents & POLLHUP) != 0) {
-            handleSocketErrorWithMessage(env, ENOTCONN, "peer closed connection after accepting");
+            handleSocketError(env, ENOTCONN);
             return JNI_FALSE;
         }
         // connected

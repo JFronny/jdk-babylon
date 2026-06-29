@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2007, 2020, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -61,9 +61,8 @@ package nsk.stress.jni;
 import nsk.share.Consts;
 import nsk.share.Debug;
 import nsk.share.test.StressOptions;
-import jdk.test.lib.thread.ThreadWrapper;
 
-public class jnistress007 extends ThreadWrapper {
+public class jnistress007 extends Thread {
 
     /* Maximum number of iterations.  Ignored if <= 0L */
     static long numIteration = 0L;
@@ -245,11 +244,8 @@ public class jnistress007 extends ThreadWrapper {
         garb = new GarbageGenerator[nGarb];
         for (i = 0; i < nJNI; i++)
             jniter[i] = new JNIter007(sync);
-        Thread[] jniterThreads = new Thread[nJNI];
-        for (i = 0; i < nJNI; i++)
-            jniterThreads[i] = jniter[i].getThread();
         for (i = 0; i < nInter; i++) {
-            irupt[i] = new Interrupter(jniterThreads, sync);
+            irupt[i] = new Interrupter(jniter, sync);
             irupt[i].setInterval(iruptInterval);
         }
         for (i = 0; i < nGarb; i++) {
@@ -368,7 +364,7 @@ public class jnistress007 extends ThreadWrapper {
     final private static boolean DEBUG = false;
 }
 
-class JNIter007 extends ThreadWrapper {
+class JNIter007 extends Thread {
 
     // The native methods for testing JNI monitors calls
     public native void incCount(String name);

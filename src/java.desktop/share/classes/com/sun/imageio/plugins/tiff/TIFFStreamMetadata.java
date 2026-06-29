@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2015, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -54,7 +54,6 @@ public class TIFFStreamMetadata extends IIOMetadata {
               null, null);
     }
 
-    @Override
     public boolean isReadOnly() {
         return false;
     }
@@ -65,7 +64,6 @@ public class TIFFStreamMetadata extends IIOMetadata {
         throw new IIOInvalidTreeException(reason, node);
     }
 
-    @Override
     public Node getAsTree(String formatName) {
         IIOMetadataNode root = new IIOMetadataNode(nativeMetadataFormatName);
 
@@ -105,7 +103,6 @@ public class TIFFStreamMetadata extends IIOMetadata {
         }
     }
 
-    @Override
     public void mergeTree(String formatName, Node root)
         throws IIOInvalidTreeException {
         if (formatName.equals(nativeMetadataFormatName)) {
@@ -118,7 +115,6 @@ public class TIFFStreamMetadata extends IIOMetadata {
         }
     }
 
-    @Override
     public void reset() {
         this.byteOrder = ByteOrder.BIG_ENDIAN;
     }

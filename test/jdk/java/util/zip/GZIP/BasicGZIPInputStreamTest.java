@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -22,21 +22,15 @@
  */
 
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
-import java.util.zip.GZIPOutputStream;
 
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /*
  * @test
@@ -57,7 +51,7 @@ public class BasicGZIPInputStreamTest {
     @ParameterizedTest
     @MethodSource("npeFromConstructors")
     public void testNPEFromConstructors(final Executable constructor) {
-        assertThrows(NullPointerException.class, constructor,
+        Assertions.assertThrows(NullPointerException.class, constructor,
                 "GZIPInputStream constructor did not throw NullPointerException");
     }
 
@@ -77,7 +71,7 @@ public class BasicGZIPInputStreamTest {
     @ParameterizedTest
     @MethodSource("iaeFromConstructors")
     public void testIAEFromConstructors(final Executable constructor) {
-        assertThrows(IllegalArgumentException.class, constructor,
+        Assertions.assertThrows(IllegalArgumentException.class, constructor,
                 "GZIPInputStream constructor did not throw IllegalArgumentException");
     }
 
@@ -95,29 +89,7 @@ public class BasicGZIPInputStreamTest {
     @ParameterizedTest
     @MethodSource("ioeFromConstructors")
     public void testIOEFromConstructors(final Executable constructor) {
-        assertThrows(IOException.class, constructor,
+        Assertions.assertThrows(IOException.class, constructor,
                 "GZIPInputStream constructor did not throw IOException");
-    }
-
-    /*
-     * Verifies that GZIPInputStream.read() throws IOException when invoked on a closed
-     * stream
-     */
-    @Test
-    void testClosedStreamRead() throws Exception {
-        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        try (GZIPOutputStream gzos = new GZIPOutputStream(baos)) {
-            gzos.write(new byte[] {0x42, 0x42}); // GZIP compress these input bytes
-        }
-        final byte[] gzipCompressed = baos.toByteArray();
-        // create the GZIPInputStream to test
-        final GZIPInputStream in = new GZIPInputStream(new ByteArrayInputStream(gzipCompressed));
-        in.close();
-        final IOException ioe = assertThrows(IOException.class, () -> in.read(new byte[1], 0, 1));
-        final String exMessage = ioe.getMessage();
-        if (exMessage == null || !exMessage.contains("Stream closed")) {
-            // unexpected exception message, propagate the original exception
-            throw ioe;
-        }
     }
 }

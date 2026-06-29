@@ -35,7 +35,6 @@
  * @library /test/lib
  * @run junit/othervm/timeout=480 -Djdk.pollerMode=1 BlockingChannelOps
  * @run junit/othervm/timeout=480 -Djdk.pollerMode=2 BlockingChannelOps
- * @run junit/othervm/timeout=480 -Djdk.pollerMode=3 BlockingChannelOps
  */
 
 /*
@@ -67,8 +66,6 @@ import java.util.concurrent.locks.LockSupport;
 
 import jdk.test.lib.thread.VThreadRunner;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import static org.junit.jupiter.api.Assertions.*;
 
 class BlockingChannelOps {
@@ -304,9 +301,20 @@ class BlockingChannelOps {
     /**
      * Virtual thread blocks in SocketChannel adaptor read.
      */
-    @ParameterizedTest
-    @ValueSource(ints = { 0, 60_000 })
-    void testSocketAdaptorRead(int timeout) throws Exception {
+    @Test
+    void testSocketAdaptorRead1() throws Exception {
+        testSocketAdaptorRead(0);
+    }
+
+    /**
+     * Virtual thread blocks in SocketChannel adaptor read with timeout.
+     */
+    @Test
+    void testSocketAdaptorRead2() throws Exception {
+        testSocketAdaptorRead(60_000);
+    }
+
+    private void testSocketAdaptorRead(int timeout) throws Exception {
         VThreadRunner.run(() -> {
             try (var connection = new Connection()) {
                 SocketChannel sc1 = connection.channel1();
@@ -412,9 +420,20 @@ class BlockingChannelOps {
     /**
      * Virtual thread blocks in ServerSocketChannel adaptor accept.
      */
-    @ParameterizedTest
-    @ValueSource(ints = { 0, 60_000 })
-    void testSocketChannelAdaptorAccept(int timeout) throws Exception {
+    @Test
+    void testSocketChannelAdaptorAccept1() throws Exception {
+        testSocketChannelAdaptorAccept(0);
+    }
+
+    /**
+     * Virtual thread blocks in ServerSocketChannel adaptor accept with timeout.
+     */
+    @Test
+    void testSocketChannelAdaptorAccept2() throws Exception {
+        testSocketChannelAdaptorAccept(60_000);
+    }
+
+    private void testSocketChannelAdaptorAccept(int timeout) throws Exception {
         VThreadRunner.run(() -> {
             try (var ssc = ServerSocketChannel.open()) {
                 ssc.bind(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0));
@@ -527,9 +546,20 @@ class BlockingChannelOps {
     /**
      * Virtual thread blocks in DatagramSocket adaptor receive.
      */
-    @ParameterizedTest
-    @ValueSource(ints = { 0, 60_000 })
-    void testDatagramSocketAdaptorReceive(int timeout) throws Exception {
+    @Test
+    void testDatagramSocketAdaptorReceive1() throws Exception {
+        testDatagramSocketAdaptorReceive(0);
+    }
+
+    /**
+     * Virtual thread blocks in DatagramSocket adaptor receive with timeout.
+     */
+    @Test
+    void testDatagramSocketAdaptorReceive2() throws Exception {
+        testDatagramSocketAdaptorReceive(60_000);
+    }
+
+    private void testDatagramSocketAdaptorReceive(int timeout) throws Exception {
         VThreadRunner.run(() -> {
             try (DatagramChannel dc1 = DatagramChannel.open();
                  DatagramChannel dc2 = DatagramChannel.open()) {
@@ -555,9 +585,21 @@ class BlockingChannelOps {
     /**
      * DatagramChannel close while virtual thread blocked in adaptor receive.
      */
-    @ParameterizedTest
-    @ValueSource(ints = { 0, 60_000 })
-    void testDatagramSocketAdaptorReceiveAsyncClose(int timeout) throws Exception {
+    @Test
+    void testDatagramSocketAdaptorReceiveAsyncClose1() throws Exception {
+        testDatagramSocketAdaptorReceiveAsyncClose(0);
+    }
+
+    /**
+     * DatagramChannel close while virtual thread blocked in adaptor receive
+     * with timeout.
+     */
+    @Test
+    void testDatagramSocketAdaptorReceiveAsyncClose2() throws Exception {
+        testDatagramSocketAdaptorReceiveAsyncClose(60_1000);
+    }
+
+    private void testDatagramSocketAdaptorReceiveAsyncClose(int timeout) throws Exception {
         VThreadRunner.run(() -> {
             try (DatagramChannel dc = DatagramChannel.open()) {
                 InetAddress lh = InetAddress.getLoopbackAddress();
@@ -579,9 +621,21 @@ class BlockingChannelOps {
     /**
      * Virtual thread interrupted while blocked in DatagramSocket adaptor receive.
      */
-    @ParameterizedTest
-    @ValueSource(ints = { 0, 60_000 })
-    void testDatagramSocketAdaptorReceiveInterrupt(int timeout) throws Exception {
+    @Test
+    void testDatagramSocketAdaptorReceiveInterrupt1() throws Exception {
+        testDatagramSocketAdaptorReceiveInterrupt(0);
+    }
+
+    /**
+     * Virtual thread interrupted while blocked in DatagramSocket adaptor receive
+     * with timeout.
+     */
+    @Test
+    void testDatagramSocketAdaptorReceiveInterrupt2() throws Exception {
+        testDatagramSocketAdaptorReceiveInterrupt(60_1000);
+    }
+
+    private void testDatagramSocketAdaptorReceiveInterrupt(int timeout) throws Exception {
         VThreadRunner.run(() -> {
             try (DatagramChannel dc = DatagramChannel.open()) {
                 InetAddress lh = InetAddress.getLoopbackAddress();

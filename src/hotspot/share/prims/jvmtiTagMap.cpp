@@ -57,7 +57,6 @@
 #include "runtime/javaCalls.hpp"
 #include "runtime/javaThread.inline.hpp"
 #include "runtime/jniHandles.inline.hpp"
-#include "runtime/mountUnmountDisabler.hpp"
 #include "runtime/mutex.hpp"
 #include "runtime/mutexLocker.hpp"
 #include "runtime/safepoint.hpp"
@@ -136,6 +135,20 @@ bool JvmtiTagMap::is_empty() {
   return hashmap()->is_empty();
 }
 
+// This checks for posting before operations that use
+// this tagmap table.
+void JvmtiTagMap::check_hashmap(GrowableArray<jlong>* objects) {
+  assert(is_locked(), "checking");
+
+  if (is_empty()) { return; }
+
+  if (_needs_cleaning &&
+      objects != nullptr &&
+      env()->is_enabled(JVMTI_EVENT_OBJECT_FREE)) {
+    remove_dead_entries_locked(objects);
+  }
+}
+
 // This checks for posting and is called from the heap walks.
 void JvmtiTagMap::check_hashmaps_for_heapwalk(GrowableArray<jlong>* objects) {
   assert(SafepointSynchronize::is_at_safepoint(), "called from safepoints");
@@ -148,7 +161,7 @@ void JvmtiTagMap::check_hashmaps_for_heapwalk(GrowableArray<jlong>* objects) {
     if (tag_map != nullptr) {
       // The ZDriver may be walking the hashmaps concurrently so this lock is needed.
       MutexLocker ml(tag_map->lock(), Mutex::_no_safepoint_check_flag);
-      tag_map->remove_dead_entries_locked(objects);
+      tag_map->check_hashmap(objects);
     }
   }
 }
@@ -315,6 +328,11 @@ class TwoOopCallbackWrapper : public CallbackWrapper {
 void JvmtiTagMap::set_tag(jobject object, jlong tag) {
   MutexLocker ml(lock(), Mutex::_no_safepoint_check_flag);
 
+  // SetTag should not post events because the JavaThread has to
+  // transition to native for the callback and this cannot stop for
+  // safepoints with the hashmap lock held.
+  check_hashmap(nullptr);  /* don't collect dead objects */
+
   // resolve the object
   oop o = JNIHandles::resolve_non_null(object);
 
@@ -334,6 +352,11 @@ void JvmtiTagMap::set_tag(jobject object, jlong tag) {
 // get the tag for an object
 jlong JvmtiTagMap::get_tag(jobject object) {
   MutexLocker ml(lock(), Mutex::_no_safepoint_check_flag);
+
+  // GetTag should not post events because the JavaThread has to
+  // transition to native for the callback and this cannot stop for
+  // safepoints with the hashmap lock held.
+  check_hashmap(nullptr); /* don't collect dead objects */
 
   // resolve the object
   oop o = JNIHandles::resolve_non_null(object);
@@ -692,7 +715,7 @@ static jint invoke_string_value_callback(jvmtiStringPrimitiveValueCallback cb,
                    user_data);
 
   if (is_latin1 && s_len > 0) {
-    FREE_C_HEAP_ARRAY(value);
+    FREE_C_HEAP_ARRAY(jchar, value);
   }
   return res;
 }
@@ -1180,10 +1203,8 @@ void JvmtiTagMap::flush_object_free_events() {
   assert_not_at_safepoint();
   if (env()->is_enabled(JVMTI_EVENT_OBJECT_FREE)) {
     {
-      // The other thread can block for safepoints during event callbacks, so ensure we
-      // are safepoint-safe while waiting.
-      ThreadBlockInVM tbivm(JavaThread::current());
       MonitorLocker ml(lock(), Mutex::_no_safepoint_check_flag);
+      // If another thread is posting events, let it finish
       while (_posting_events) {
         ml.wait();
       }
@@ -3007,7 +3028,7 @@ void JvmtiTagMap::iterate_over_reachable_objects(jvmtiHeapRootCallback heap_root
                                                  jvmtiObjectReferenceCallback object_ref_callback,
                                                  const void* user_data) {
   // VTMS transitions must be disabled before the EscapeBarrier.
-  MountUnmountDisabler disabler;
+  JvmtiVTMSTransitionDisabler disabler;
 
   JavaThread* jt = JavaThread::current();
   EscapeBarrier eb(true, jt);
@@ -3035,7 +3056,7 @@ void JvmtiTagMap::iterate_over_objects_reachable_from_object(jobject object,
   Arena dead_object_arena(mtServiceability);
   GrowableArray<jlong> dead_objects(&dead_object_arena, 10, 0, 0);
 
-  MountUnmountDisabler disabler;
+  JvmtiVTMSTransitionDisabler disabler;
 
   {
     MutexLocker ml(Heap_lock);
@@ -3055,7 +3076,7 @@ void JvmtiTagMap::follow_references(jint heap_filter,
                                     const void* user_data)
 {
   // VTMS transitions must be disabled before the EscapeBarrier.
-  MountUnmountDisabler disabler;
+  JvmtiVTMSTransitionDisabler disabler;
 
   oop obj = JNIHandles::resolve(object);
   JavaThread* jt = JavaThread::current();

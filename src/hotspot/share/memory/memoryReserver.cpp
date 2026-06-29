@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2025, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -99,7 +99,9 @@ static char* reserve_memory_inner(char* requested_address,
   }
 
   // Base not aligned, retry.
-  os::release_memory(base, size);
+  if (!os::release_memory(base, size)) {
+    fatal("os::release_memory failed");
+  }
 
   // Map using the requested alignment.
   return os::reserve_memory_aligned(size, alignment, mem_tag, exec);
@@ -229,9 +231,14 @@ ReservedSpace MemoryReserver::reserve(size_t size,
                  mem_tag);
 }
 
-void MemoryReserver::release(const ReservedSpace& reserved) {
+bool MemoryReserver::release(const ReservedSpace& reserved) {
   assert(reserved.is_reserved(), "Precondition");
-  os::release_memory(reserved.base(), reserved.size());
+
+  if (reserved.special()) {
+    return os::release_memory_special(reserved.base(), reserved.size());
+  } else {
+    return os::release_memory(reserved.base(), reserved.size());
+  }
 }
 
 static char* map_memory_to_file(char* requested_address,
@@ -259,7 +266,9 @@ static char* map_memory_to_file(char* requested_address,
 
 
   // Base not aligned, retry.
-  os::unmap_memory(base, size);
+  if (!os::unmap_memory(base, size)) {
+    fatal("os::unmap_memory failed");
+  }
 
   // Map using the requested alignment.
   return os::map_memory_to_file_aligned(size, alignment, fd, mem_tag);
@@ -367,7 +376,11 @@ ReservedSpace HeapReserver::Instance::reserve_memory(size_t size,
 void HeapReserver::Instance::release(const ReservedSpace& reserved) {
   if (reserved.is_reserved()) {
     if (_fd == -1) {
-      os::release_memory(reserved.base(), reserved.size());
+      if (reserved.special()) {
+        os::release_memory_special(reserved.base(), reserved.size());
+      } else{
+        os::release_memory(reserved.base(), reserved.size());
+      }
     } else {
       os::unmap_memory(reserved.base(), reserved.size());
     }
@@ -424,7 +437,7 @@ ReservedSpace HeapReserver::Instance::try_reserve_range(char *highest_start,
 
     if (reserved.is_reserved()) {
       if (reserved.base() >= aligned_heap_base_min_address &&
-          size <= (size_t)(upper_bound - reserved.base())) {
+          size <= (uintptr_t)(upper_bound - reserved.base())) {
         // Got a successful reservation.
         return reserved;
       }
@@ -488,8 +501,7 @@ static ReservedSpace establish_noaccess_prefix(const ReservedSpace& reserved, si
   assert(reserved.alignment() >= os::vm_page_size(), "must be at least page size big");
   assert(reserved.is_reserved(), "should only be called on a reserved memory area");
 
-  if (reserved.end() > (char *)OopEncodingHeapMax || AOTCompatibleOopCompression) {
-    assert((reserved.base() != nullptr), "sanity");
+  if (reserved.end() > (char *)OopEncodingHeapMax) {
     if (true
         WIN64_ONLY(&& !UseLargePages)
         AIX_ONLY(&& (os::Aix::supports_64K_mmap_pages() || os::vm_page_size() == 4*K))) {
@@ -534,23 +546,16 @@ ReservedHeapSpace HeapReserver::Instance::reserve_compressed_oops_heap(const siz
 
   const size_t attach_point_alignment = lcm(alignment, os_attach_point_alignment);
 
-  uintptr_t aligned_heap_base_min_address = align_up(MAX2(HeapBaseMinAddress, alignment), alignment);
-  uintptr_t heap_end_address = aligned_heap_base_min_address + size;
-
-  bool unscaled  = false;
-  bool zerobased = false;
-  if (!AOTCompatibleOopCompression) { // heap base is not enforced
-    unscaled  = (heap_end_address <= UnscaledOopHeapMax);
-    zerobased = (heap_end_address <= OopEncodingHeapMax);
-  }
-  size_t noaccess_prefix = !zerobased ? noaccess_prefix_size : 0;
+  char* aligned_heap_base_min_address = align_up((char*)HeapBaseMinAddress, alignment);
+  size_t noaccess_prefix = ((aligned_heap_base_min_address + size) > (char*)OopEncodingHeapMax) ?
+    noaccess_prefix_size : 0;
 
   ReservedSpace reserved{};
 
   // Attempt to alloc at user-given address.
-  if (!FLAG_IS_DEFAULT(HeapBaseMinAddress) || AOTCompatibleOopCompression) {
-    reserved = try_reserve_memory(size + noaccess_prefix, alignment, page_size, (char*)aligned_heap_base_min_address);
-    if (reserved.base() != (char*)aligned_heap_base_min_address) { // Enforce this exact address.
+  if (!FLAG_IS_DEFAULT(HeapBaseMinAddress)) {
+    reserved = try_reserve_memory(size + noaccess_prefix, alignment, page_size, aligned_heap_base_min_address);
+    if (reserved.base() != aligned_heap_base_min_address) { // Enforce this exact address.
       release(reserved);
       reserved = {};
     }
@@ -570,41 +575,38 @@ ReservedHeapSpace HeapReserver::Instance::reserve_compressed_oops_heap(const siz
 
     // Attempt to allocate so that we can run without base and scale (32-Bit unscaled compressed oops).
     // Give it several tries from top of range to bottom.
-    if (unscaled) {
+    if (aligned_heap_base_min_address + size <= (char *)UnscaledOopHeapMax) {
 
       // Calc address range within we try to attach (range of possible start addresses).
-      uintptr_t const highest_start = align_down(UnscaledOopHeapMax - size, attach_point_alignment);
-      uintptr_t const lowest_start  = align_up(aligned_heap_base_min_address, attach_point_alignment);
-      assert(lowest_start <= highest_start, "lowest: " INTPTR_FORMAT " highest: " INTPTR_FORMAT ,
-                                          lowest_start, highest_start);
-      reserved = try_reserve_range((char*)highest_start, (char*)lowest_start, attach_point_alignment,
-                                   (char*)aligned_heap_base_min_address, (char*)UnscaledOopHeapMax, size, alignment, page_size);
+      char* const highest_start = align_down((char *)UnscaledOopHeapMax - size, attach_point_alignment);
+      char* const lowest_start  = align_up(aligned_heap_base_min_address, attach_point_alignment);
+      reserved = try_reserve_range(highest_start, lowest_start, attach_point_alignment,
+                                   aligned_heap_base_min_address, (char *)UnscaledOopHeapMax, size, alignment, page_size);
     }
 
     // zerobased: Attempt to allocate in the lower 32G.
-    const uintptr_t zerobased_max = OopEncodingHeapMax;
+    char *zerobased_max = (char *)OopEncodingHeapMax;
 
     // Give it several tries from top of range to bottom.
-    if (zerobased &&                                             // Zerobased theoretical possible.
+    if (aligned_heap_base_min_address + size <= zerobased_max && // Zerobased theoretical possible.
         ((!reserved.is_reserved()) ||                            // No previous try succeeded.
-         (reserved.end() > (char*)zerobased_max))) {             // Unscaled delivered an arbitrary address.
+         (reserved.end() > zerobased_max))) {                    // Unscaled delivered an arbitrary address.
 
       // Release previous reservation
       release(reserved);
 
       // Calc address range within we try to attach (range of possible start addresses).
-      uintptr_t const highest_start = align_down(zerobased_max - size, attach_point_alignment);
+      char *const highest_start = align_down(zerobased_max - size, attach_point_alignment);
       // Need to be careful about size being guaranteed to be less
       // than UnscaledOopHeapMax due to type constraints.
-      uintptr_t lowest_start = aligned_heap_base_min_address;
-      if (size < UnscaledOopHeapMax) {
-        lowest_start = MAX2<uintptr_t>(lowest_start, UnscaledOopHeapMax - size);
+      char *lowest_start = aligned_heap_base_min_address;
+      uint64_t unscaled_end = UnscaledOopHeapMax - size;
+      if (unscaled_end < UnscaledOopHeapMax) { // unscaled_end wrapped if size is large
+        lowest_start = MAX2(lowest_start, (char*)unscaled_end);
       }
       lowest_start = align_up(lowest_start, attach_point_alignment);
-      assert(lowest_start <= highest_start, "lowest: " INTPTR_FORMAT " highest: " INTPTR_FORMAT,
-                                          lowest_start, highest_start);
-      reserved = try_reserve_range((char*)highest_start, (char*)lowest_start, attach_point_alignment,
-                                   (char*)aligned_heap_base_min_address, (char*)zerobased_max, size, alignment, page_size);
+      reserved = try_reserve_range(highest_start, lowest_start, attach_point_alignment,
+                                   aligned_heap_base_min_address, zerobased_max, size, alignment, page_size);
     }
 
     // Now we go for heaps with base != 0.  We need a noaccess prefix to efficiently
@@ -614,17 +616,17 @@ ReservedHeapSpace HeapReserver::Instance::reserve_compressed_oops_heap(const siz
     // Try to attach at addresses that are aligned to OopEncodingHeapMax. Disjointbase mode.
     char** addresses = get_attach_addresses_for_disjoint_mode();
     int i = 0;
-    while ((addresses[i] != nullptr) &&              // End of array not yet reached.
-           ((!reserved.is_reserved()) ||             // No previous try succeeded.
-           (reserved.end() > (char*)zerobased_max && // Not zerobased or unscaled address.
-                                                     // Not disjoint address.
+    while ((addresses[i] != nullptr) &&       // End of array not yet reached.
+           ((!reserved.is_reserved()) ||      // No previous try succeeded.
+           (reserved.end() > zerobased_max && // Not zerobased or unscaled address.
+                                              // Not disjoint address.
             !CompressedOops::is_disjoint_heap_base_address((address)reserved.base())))) {
 
       // Release previous reservation
       release(reserved);
 
       char* const attach_point = addresses[i];
-      assert((uintptr_t)attach_point >= aligned_heap_base_min_address, "Flag support broken");
+      assert(attach_point >= aligned_heap_base_min_address, "Flag support broken");
       reserved = try_reserve_memory(size + noaccess_prefix, alignment, page_size, attach_point);
       i++;
     }
@@ -654,7 +656,6 @@ ReservedHeapSpace HeapReserver::Instance::reserve_compressed_oops_heap(const siz
     }
 
     // We reserved heap memory without a noaccess prefix.
-    assert(!AOTCompatibleOopCompression, "noaccess prefix is missing");
     return ReservedHeapSpace(reserved, 0 /* noaccess_prefix */);
   }
 
@@ -665,12 +666,11 @@ ReservedHeapSpace HeapReserver::Instance::reserve_compressed_oops_heap(const siz
 #endif // _LP64
 
 ReservedHeapSpace HeapReserver::Instance::reserve_heap(size_t size, size_t alignment, size_t page_size) {
-#ifdef _LP64
   if (UseCompressedOops) {
+#ifdef _LP64
     return reserve_compressed_oops_heap(size, alignment, page_size);
-  } else
 #endif
-  {
+  } else {
     return reserve_uncompressed_oops_heap(size, alignment, page_size);
   }
 }

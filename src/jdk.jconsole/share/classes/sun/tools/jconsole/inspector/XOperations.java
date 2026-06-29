@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2004, 2014, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -106,10 +106,8 @@ public abstract class XOperations extends JPanel implements ActionListener {
                             "been defined in the MBean's implementation code.");
                 }
             } else {
-                methodLabel = new JLabel();
-                methodLabel.putClientProperty("html.disable", Boolean.TRUE);
-                methodLabel.setText(Utils.getReadableClassName(returnType));
-                methodLabel.setHorizontalAlignment(JLabel.RIGHT);
+                methodLabel = new JLabel(
+                        Utils.getReadableClassName(returnType), JLabel.RIGHT);
             }
             innerPanelLeft.add(methodLabel);
             if (methodLabel.getText().length() > 20) {
@@ -119,16 +117,7 @@ public abstract class XOperations extends JPanel implements ActionListener {
                         methodLabel.getText().length()));
             }
 
-            methodButton = new JButton() {
-                @Override
-                public JToolTip createToolTip() {
-                    JToolTip t = super.createToolTip();
-                    t.putClientProperty("html.disable", Boolean.TRUE);
-                    return t;
-                }
-            };
-            methodButton.putClientProperty("html.disable", Boolean.TRUE);
-            methodButton.setText(operations[i].getName());
+            methodButton = new JButton(operations[i].getName());
             methodButton.setToolTipText(operations[i].getDescription());
             boolean callable = isCallable(operations[i].getSignature());
             if (callable) {

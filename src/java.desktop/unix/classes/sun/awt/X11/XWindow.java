@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002, 2026, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2002, 2024, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -31,7 +31,6 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Cursor;
-import java.awt.EventQueue;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
@@ -426,7 +425,7 @@ class XWindow extends XBaseWindow implements X11ComponentPeer {
         if (focusLog.isLoggable(PlatformLogger.Level.FINER) && (e instanceof FocusEvent)) {
             focusLog.finer("Sending " + e);
         }
-        XToolkit.postEvent(pe);
+        XToolkit.postEvent(XToolkit.targetToAppContext(e.getSource()), pe);
     }
 
 
@@ -436,11 +435,11 @@ class XWindow extends XBaseWindow implements X11ComponentPeer {
 // NOTE: This method may be called by privileged threads.
 //       DO NOT INVOKE CLIENT CODE ON THIS THREAD!
     void postEvent(AWTEvent event) {
-        XToolkit.postEvent(event);
+        XToolkit.postEvent(XToolkit.targetToAppContext(event.getSource()), event);
     }
 
     static void postEventStatic(AWTEvent event) {
-        XToolkit.postEvent(event);
+        XToolkit.postEvent(XToolkit.targetToAppContext(event.getSource()), event);
     }
 
     public void postEventToEventQueue(final AWTEvent event) {
@@ -515,7 +514,7 @@ class XWindow extends XBaseWindow implements X11ComponentPeer {
         if (g != null) {
             try {
                 g.setClip(x, y, width, height);
-                if (EventQueue.isDispatchThread()) {
+                if (SunToolkit.isDispatchThreadForAppContext(getTarget())) {
                     paint(g); // The native and target will be painted in place.
                 } else {
                     paintPeer(g);

@@ -501,15 +501,9 @@ public class ConnectionPoolTest {
         @Override SocketChannel channel() {return channel;}
         @Override
         public void close() {
-            this.close(null);
-        }
-
-        @Override
-        void close(final Throwable cause) {
             closed=finished=true;
-            System.out.println("closed: " + this + " cause: " + cause);
+            System.out.println("closed: " + this);
         }
-
         @Override
         public String toString() {
             return "HttpConnectionStub: " + address + " proxy: " + proxy;
