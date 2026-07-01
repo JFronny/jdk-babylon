@@ -28,6 +28,10 @@ package jdk.incubator.code.dialect.java;
 import java.lang.constant.ClassDesc;
 import java.lang.constant.MethodTypeDesc;
 
+import com.sun.source.tree.MethodTree;
+import com.sun.tools.javac.api.BasicJavacTask;
+import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.util.Context;
 import jdk.incubator.code.dialect.core.CoreType;
 import jdk.incubator.code.dialect.java.JavaOp.InvokeOp.InvokeKind;
 import jdk.incubator.code.dialect.java.impl.MethodRefImpl;
@@ -39,7 +43,9 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import jdk.incubator.code.CodeType;
 import jdk.incubator.code.dialect.core.FunctionType;
+import jdk.incubator.code.internal.ReflectMethods;
 
+import javax.tools.JavaCompiler;
 import java.util.List;
 
 import static jdk.incubator.code.dialect.core.CoreType.functionType;
@@ -196,6 +202,21 @@ public sealed interface MethodRef extends JavaRef, TypeVariableType.Owner
      */
     static MethodRef method(CodeType refType, String name, CodeType retType, List<? extends CodeType> params) {
         return method(refType, name, functionType(retType, params));
+    }
+
+    /**
+     * Returns a method reference referencing the provided method tree.
+     * @param task the compilation task in whose context the method exists
+     * @param node the method tree
+     * @return a method reference
+     */
+    static MethodRef method(JavaCompiler.CompilationTask task, MethodTree node) {
+        if (!(task instanceof BasicJavacTask basicJavacTask))
+            throw new IllegalArgumentException();
+        if (!(node instanceof JCTree.JCMethodDecl methodDecl))
+            throw new UnsupportedOperationException("Unsupported MethodTree implementation: " + node.getClass().getName());
+        Context context = basicJavacTask.getContext();
+        return ReflectMethods.instance(context).symbolToMethodRef(methodDecl.sym);
     }
 
     // Constructor factories

@@ -2786,7 +2786,7 @@ public class ReflectMethods extends TreeTranslatorPrev {
         return typeToCodeType(s.erasure(types));
     }
 
-    JavaType typeToCodeType(Type t) {
+    public JavaType typeToCodeType(Type t) {
         Assert.check(!t.hasTag(METHOD));
         t = asDenotable(t);
         return switch (t.getTag()) {
@@ -2898,7 +2898,7 @@ public class ReflectMethods extends TreeTranslatorPrev {
         return symbolToMethodRef(gen.binaryQualifier(s, types.erasure(site)));
     }
 
-    MethodRef symbolToMethodRef(Symbol s) {
+    public MethodRef symbolToMethodRef(Symbol s) {
         Type erasedType = s.erasure(types);
         return MethodRef.method(
                 typeToCodeType(s.owner.erasure(types)),

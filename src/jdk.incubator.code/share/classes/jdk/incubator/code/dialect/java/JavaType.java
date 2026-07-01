@@ -31,12 +31,18 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.reflect.*;
 
+import com.sun.source.tree.ClassTree;
+import com.sun.tools.javac.api.BasicJavacTask;
+import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.util.Context;
 import jdk.incubator.code.CodeType;
 import jdk.incubator.code.dialect.core.CoreType;
 import jdk.incubator.code.dialect.java.impl.JavaTypeUtils;
 import jdk.incubator.code.dialect.java.WildcardType.BoundKind;
 import jdk.incubator.code.extern.CodeTypeFactory;
+import jdk.incubator.code.internal.ReflectMethods;
 
+import javax.tools.JavaCompiler;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
@@ -274,6 +280,21 @@ public sealed interface JavaType extends CodeType
             // class
             return new ClassType(null, desc, List.of());
         }
+    }
+
+    /**
+     * Returns a Java type from a class node.
+     * @param task the compilation task in whose context the class exists
+     * @param node the class tree
+     * @return a Java type representing the class
+     */
+    static JavaType type(JavaCompiler.CompilationTask task, ClassTree node) {
+        if (!(task instanceof BasicJavacTask basicJavacTask))
+            throw new IllegalArgumentException();
+        if (!(node instanceof JCTree.JCClassDecl classDecl))
+            throw new UnsupportedOperationException("Unsupported ClassTree implementation: " + node.getClass().getName());
+        Context context = basicJavacTask.getContext();
+        return ReflectMethods.instance(context).typeToCodeType(classDecl.sym.type);
     }
 
     /**
